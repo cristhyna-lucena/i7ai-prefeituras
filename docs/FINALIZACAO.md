@@ -2,6 +2,12 @@
 
 O trabalho segue [as etapas combinadas](ETAPAS_FINALIZACAO.md). A vinculação com o SGDM real permanece adiada. O módulo não possui login próprio; a prévia utiliza dados fictícios e o pacote oficial `@sgdm/design` 0.2.1.
 
+## Situação em 5 de outubro de 2026
+
+O inventário consolidado de entregas, configurações e pendências está em [STATUS_PROJETO.md](STATUS_PROJETO.md). A implementação do chat com seleção independente de agente/modelo, histórico, anexos privados e adaptador OmniRouter está concluída; contratos, formatos e configuração estão em [CHAT_OMNIROUTER.md](CHAT_OMNIROUTER.md).
+
+A CI da implementação `701412c` foi [aprovada no GitHub Actions](https://github.com/cristhyna-lucena/i7ai-prefeituras/actions/runs/37360216695). Essa verificação não representa uma chamada à conta real do OmniRouter nem uma implantação de produção. Permanecem pendentes as credenciais e o catálogo real de modelos da conta, a vinculação ao SGDM real e a implantação no ambiente operacional.
+
 ## Recursos concluídos
 
 - Cadastro e provisionamento de identidades sem senha local. A migration permite `passwordHash` nulo e preserva os hashes legados existentes.
@@ -34,9 +40,9 @@ Argumentos para testar ou chamar ambas:
 {"query":"publicação de editais","limit":5}
 ```
 
-## Verificação
+## Verificação histórica de 2 de outubro de 2026
 
-Resultados em 2 de outubro de 2026:
+Os resultados abaixo registram a conclusão interna em 2 de outubro de 2026 e foram preservados como histórico. Os resultados e pendências atualizados de 5 de outubro estão em [STATUS_PROJETO.md](STATUS_PROJETO.md) e [CHAT_OMNIROUTER.md](CHAT_OMNIROUTER.md):
 
 - Geração do Prisma, builds de frontend/backend e 120 testes de backend aprovados após as atualizações de dependências. Os testes incluem planilhas Excel, PDFs nativos/digitalizados, streaming, quota, retenção e ferramentas.
 - Integração aprovada com PostgreSQL/pgvector, Redis, MinIO, API e fila: migrations, JWT/perfis, isolamento por prefeitura, upload/RAG, chat/histórico/SSE, automações/agendamentos, auditoria/consumo, concorrência de quota, retenção e novas ferramentas. Foram feitas quatro chamadas exclusivamente ao provedor local simulado. O teste removeu seu schema, filas e arquivos, preservando os dados existentes.
@@ -59,8 +65,10 @@ docker build -t i7ai-frontend:verification-20261002 .
 node scripts/verify-linux.cjs
 ```
 
-A prévia local para abrir no navegador deste computador é `http://127.0.0.1:5180/preview/sgdm.html`. Ela é exclusiva do desenvolvimento e apresenta dados fictícios, sem alterações persistidas. A [galeria](../output/verification/sgdm/index.html) reúne a revisão em desktop e celular.
+Na verificação histórica, a prévia local foi disponibilizada em `http://127.0.0.1:5180/preview/sgdm.html`. Esse registro não confirma que um servidor esteja ativo agora. A prévia é exclusiva do desenvolvimento e apresenta dados fictícios, sem alterações persistidas. A [galeria](../output/verification/sgdm/index.html) reúne a revisão em desktop e celular.
 
 ## Etapa posterior
 
 Somente após a conclusão interna: validar contexto de sessão, montagem, navegação, permissões, nomes de prefeitura/usuário e visual no SGDM real. A prévia não representa uma vinculação já realizada. Implantação no destino, HTTPS, credenciais reais de provedores, backups e monitoramento dependem da configuração do ambiente operacional.
+
+Para iniciar a operação solicitada, configure a conta OmniRouter e cadastre os identificadores e capacidades dos modelos realmente disponíveis nela. Ter os provedores OpenAI, Anthropic e Google no catálogo central não significa que GPT, Claude e Gemini já estejam configurados e acessíveis. Consulte o [estado do catálogo e das configurações](STATUS_PROJETO.md) antes da implantação.

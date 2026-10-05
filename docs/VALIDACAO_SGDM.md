@@ -1,6 +1,8 @@
 # Validação do design system SGDM
 
-Data: 2 de outubro de 2026.
+Data da revisão inicial: 2 de outubro de 2026. A atualização do chat em 5 de outubro está registrada ao final.
+
+O [status do projeto](STATUS_PROJETO.md) centraliza entregas e pendências atuais; os resultados abaixo preservam as datas e o escopo de cada revisão.
 
 Referência aplicada: pacote `@sgdm/design`, versão `0.2.1`, fixado no `package.json`. As regras foram conferidas no README e nas declarações de tipos do pacote instalado.
 
@@ -24,11 +26,11 @@ Modais de agente, modelo, base, automação, agendamento, ferramenta, usuário, 
 
 ## Verificação reproduzível
 
-Resultado: builds de frontend e backend aprovados; 4 testes de streaming e 120 testes de backend aprovados; 26 testes de interface verificados; auditoria de 18 arquivos e 228 usos de componentes oficiais aprovada. Foram registradas 112 capturas de páginas, partes inferiores, modais, estados e prévia no host.
+Resultado histórico em 2 de outubro de 2026: builds de frontend e backend aprovados; 4 testes de streaming e 120 testes de backend aprovados; 26 testes de interface verificados; auditoria de 18 arquivos e 228 usos de componentes oficiais aprovada. Foram registradas 112 capturas de páginas, partes inferiores, modais, estados e prévia no host.
 
 A execução de interface teve 22 aprovações iniciais e 4 reprovações. Os três testes que percorrem todas as 16 telas excederam o tempo limite durante os builds concorrentes; seu limite foi ajustado para 120 segundos. O quarto teste precisava localizar o campo pelo nome acessível correto. Os quatro passaram na repetição, sem remover verificações. A galeria reúne as capturas das 16 telas em desktop e celular; o relatório Playwright é atualizado a cada execução focada.
 
-Após retirar a faixa superior solicitada, os dois testes da prévia em 1440px e 390px passaram novamente, percorrendo as 16 telas e verificando a ausência do cabeçalho e a navegação. Build e auditoria SGDM também passaram; capturas e galeria foram atualizadas. O relatório Playwright mais recente corresponde a esses dois testes.
+Após retirar a faixa superior solicitada, os dois testes da prévia em 1440px e 390px passaram novamente, percorrendo as 16 telas e verificando a ausência do cabeçalho e a navegação. Build e auditoria SGDM também passaram; capturas e galeria foram atualizadas. Naquela revisão, o relatório Playwright correspondia a esses dois testes; o relatório atual registra a execução focada de 15 testes do chat descrita na atualização de 5 de outubro.
 
 As verificações de integração da interface cobrem navegação sem alteração da rota do SGDM, ausência e expiração de sessão, renovação pelo host e ausência de campos de login. O backend recusa tokens do antigo emissor local mesmo com a configuração legada habilitada. O endpoint de login próprio foi removido; `GET /api/auth/me` continua protegido.
 
@@ -58,3 +60,5 @@ O chat passou a usar seletores independentes de agente/modelo, histórico geral,
 Build e auditoria passaram: 18 arquivos e 241 usos de componentes oficiais. Os 39 testes completos de interface passaram, percorrendo as 16 telas, modais e prévia do host em desktop/celular. Após alinhar os anexos históricos ao contexto do backend, os 15 testes focados do chat passaram, incluindo dois novos cenários. Há 41 cenários distintos de interface e 115 capturas atuais; o relatório navegável registra essa última execução focada.
 
 As capturas `chat-models-1440.png`, `chat-models-390.png` e `chat-restored-attachments.png` mostram o novo fluxo. Galeria e painéis de conferência foram regenerados. Os testes usam dados sintéticos; a configuração e os resultados de backend estão em [Chat e OmniRouter](CHAT_OMNIROUTER.md).
+
+A implementação no commit `701412c` teve [CI aprovado no GitHub](https://github.com/cristhyna-lucena/i7ai-prefeituras/actions/runs/37360216695). A validação com o SGDM e os modelos reais continua pendente, conforme o [status do projeto](STATUS_PROJETO.md).

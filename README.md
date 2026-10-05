@@ -4,6 +4,8 @@ Frontend React/Vite com o design system oficial `@sgdm/design` e API NestJS. Age
 
 O preset, os tokens e os componentes do SGDM são usados sem sobrescritas visuais locais. Veja a [validação do design system](docs/VALIDACAO_SGDM.md), com escopo, testes e capturas de desktop e celular.
 
+O [estado do projeto e pendências](docs/STATUS_PROJETO.md) reúne todos os pedidos e a situação verificada em 5 de outubro de 2026: GitHub público, acesso de JEFERSON-ASSIS, chat, modelos, OmniRouter, SGDM, implantação e limites. A implementação está validada localmente; configuração de IA real, integração ao SGDM e implantação no destino continuam pendentes.
+
 ## Desenvolvimento local
 
 Requisitos: Node.js 24, npm, Git e Docker Compose. A dependência pública `@sgdm/design` está fixada na referência `v0.2.1`.
@@ -35,7 +37,7 @@ Para revisar o visual sem conectar uma prefeitura, abra `http://localhost:5173/p
 
 1. Cadastre departamentos e confira os modelos disponíveis.
 2. Crie uma base e envie documentos. Aguarde **Processado**; erros de extração aparecem na tabela.
-3. Configure um agente com instruções, modelo principal, bases e ferramentas. Ative-o para usar chat e ferramentas.
+3. Configure um agente com instruções, modelo principal, bases e ferramentas. Na interface de chat, ative-o antes de conversar; o alinhamento dessa regra nas chamadas diretas à API está registrado nas [pendências](docs/STATUS_PROJETO.md#p06--alinhamento-da-regra-de-agentes-ativos).
 4. Abra o agente no chat. Conversas e fontes são persistidas por usuário e prefeitura. O streaming confirma o salvamento ao concluir; respostas parciais interrompidas não entram no histórico.
 5. Crie uma automação com etapas de agente ou ferramenta HTTP. Execute manualmente ou cadastre cron com fuso horário. Acompanhe estado, resultado, erro e duração em Execuções.
 6. Consulte consumo, auditoria e limites em Relatórios e Licenciamento.
@@ -100,7 +102,7 @@ Os testes unitários usam serviços simulados e fixtures de formatos/protocolos.
 
 ## Produção
 
-Dockerfiles, Nginx, `docker-compose.production.yml` e workflow de CI estão preparados. O workflow será executado quando o projeto estiver em um repositório GitHub.
+Dockerfiles, Nginx e `docker-compose.production.yml` estão preparados. O repositório já está público no GitHub, com workflow de CI executado em pushes e pull requests. A [verificação do commit de implementação do chat](https://github.com/cristhyna-lucena/i7ai-prefeituras/actions/runs/37360216695) passou nos jobs frontend/backend. A implantação no destino permanece pendente.
 
 Copie `deploy/.env.production.example` para `deploy/.env.production`. Preencha segredos, endereços e imagens MinIO aprovadas, fixadas em tag/digest. URLs de banco/Redis devem apontar para os serviços `postgres`/`redis`, com caracteres especiais das credenciais codificados.
 

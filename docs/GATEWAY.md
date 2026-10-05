@@ -1,4 +1,16 @@
-# Contrato do gateway de IA
+# Contratos dos gateways de IA
+
+Atualizado em 5 de outubro de 2026. Consulte [STATUS_PROJETO.md](STATUS_PROJETO.md) para o estado operacional e [CHAT_OMNIROUTER.md](CHAT_OMNIROUTER.md) para configuração, capacidades e anexos do chat.
+
+## Escolha do adaptador
+
+O OmniRouter é o gateway central da experiência solicitada. Usa `OMNIROUTER_BASE_URL` e `OMNIROUTER_API_KEY` exclusivamente no backend e o contrato compatível com Chat Completions: `POST <base>/chat/completions`, com `messages`, identificador do modelo, ferramentas e conteúdo multimodal quando permitido pelo catálogo.
+
+O adaptador OmniRouter tem precedência quando qualquer uma dessas duas variáveis está preenchida; ambas precisam estar configuradas para funcionar. Configuração incompleta ou falha do OmniRouter produz erro explícito, sem troca automática para outro provedor.
+
+Sem configuração OmniRouter, `AI_GATEWAY_URL` mantém o contrato legado descrito abaixo. Sem ambos os gateways, a integração OpenAI direta continua usando `OPENAI_API_KEY` e a Responses API. O contrato legado `/chat` não deve ser usado como se fosse o endpoint do OmniRouter. Nenhuma dessas credenciais é retornada ao navegador.
+
+## Contrato legado `AI_GATEWAY_URL`
 
 O backend chama `POST ${AI_GATEWAY_URL}/chat` com `Content-Type: application/json` e, se configurado, `Authorization: Bearer ${AI_GATEWAY_API_KEY}`. O gateway é uma configuração administrativa do servidor.
 
@@ -33,7 +45,7 @@ O histórico contém somente mensagens do usuário autenticado, da conversa/agen
 }
 ```
 
-O texto precisa ser não vazio. Os tokens devem ser números não negativos; sem eles o consumo é marcado como não medido. O formato JSON não fornece deltas: `/chat/stream` emite `complete` após persistir a resposta. A integração OpenAI direta fornece deltas reais via Responses API.
+O texto precisa ser não vazio. Os tokens devem ser números não negativos; sem eles o consumo é marcado como não medido. Esse formato JSON legado não fornece deltas: o endpoint da plataforma `/chat/stream` emite `complete` após persistir a resposta. Os adaptadores OmniRouter e OpenAI direta oferecem deltas reais quando o provedor confirma o protocolo de streaming.
 
 ## Chamadas de ferramentas
 
@@ -66,14 +78,27 @@ O gateway pode retornar chamadas em vez da resposta final:
 
 ## Eventos para o frontend
 
-`POST /api/agents/:id/chat/stream` recebe `{message,conversationId?}` com JWT e responde SSE:
+`POST /api/agents/:id/chat` e `POST /api/agents/:id/chat/stream` recebem o mesmo DTO autenticado por JWT:
+
+```json
+{
+  "message": "Analise este relatório.",
+  "conversationId": "uuid-da-conversa-existente-opcional",
+  "modelId": "uuid-do-modelo-do-catalogo-opcional",
+  "attachmentIds": ["uuid-do-anexo-privado-processado"]
+}
+```
+
+`message` é obrigatório e aceita até 16 mil caracteres. `conversationId`, `modelId` e `attachmentIds` são opcionais; os IDs devem ser UUIDs válidos. São permitidos até cinco anexos diferentes, previamente enviados a `/api/chat/attachments`, pertencentes ao usuário/prefeitura e com estado `READY`. O arquivo e sua chave de armazenamento não são recebidos nesse DTO. Sem `modelId`, uma conversa existente reutiliza seu modelo salvo; o padrão legado é o modelo principal do agente. A escolha do modelo não altera a configuração do agente.
+
+O endpoint `/chat/stream` responde SSE:
 
 ```text
 event: delta
 data: {"text":"trecho incremental"}
 
 event: complete
-data: {"answer":"resposta","conversationId":"uuid","messages":[],"sources":[],"usage":{}}
+data: {"answer":"resposta","conversationId":"uuid","modelId":"uuid","modelName":"Nome amigável","messages":[],"sources":[],"usage":{}}
 
 event: error
 data: {"message":"Motivo da falha"}
@@ -83,6 +108,6 @@ data: {"message":"Motivo da falha"}
 
 ## Reserva de consumo
 
-Cada rodada reserva tokens antes da requisição, sob bloqueio da prefeitura no PostgreSQL. O cálculo usa os bytes UTF-8 do pedido, uma margem de enquadramento e o limite de saída. O gateway deve respeitar `agent.maxTokens` e retornar os contadores reais de cada rodada, incluindo as chamadas de ferramentas.
+Cada rodada reserva tokens antes da requisição, sob bloqueio da prefeitura no PostgreSQL. Para texto, o cálculo usa os bytes UTF-8 do pedido, uma margem de enquadramento e o limite de saída. Com imagens no OmniRouter, a reserva usa a janela de contexto validada do modelo, sem tratar bytes base64 como tokens de texto. O contrato legado deve respeitar `agent.maxTokens`; os adaptadores aplicam o limite de saída do agente e as capacidades configuradas do modelo. Os contadores reais de cada rodada, incluindo ferramentas, continuam sendo registrados.
 
-O consumo é persistido antes da conversa. Uma falha posterior não apaga os tokens informados. Respostas incompletas/fracassadas da Responses API registram os contadores disponíveis; falta de confirmação mantém uma reserva pendente. Contadores ausentes não são substituídos por valores inventados. Recusas HTTP explícitas 400/401/403/404/422/429 liberam a reserva sem criar consumo. Licenciamento informa o saldo reservado separadamente.
+O consumo é persistido antes da conversa. Uma falha posterior não apaga os tokens informados. Respostas incompletas/fracassadas registram os contadores disponíveis; falta de confirmação mantém uma reserva pendente. Contadores ausentes não são substituídos por valores inventados. Recusas HTTP explícitas 400/401/402/403/404/422/429 liberam a reserva da rodada recusada sem criar consumo para ela. O HTTP 402 do OmniRouter é tratado como recusa por saldo insuficiente; eventual consumo medido em rodadas anteriores permanece registrado. Licenciamento informa o saldo reservado separadamente.

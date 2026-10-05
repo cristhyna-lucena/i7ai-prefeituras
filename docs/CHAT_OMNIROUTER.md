@@ -1,5 +1,7 @@
 # Chat, modelos e anexos privados
 
+O [status do projeto](STATUS_PROJETO.md) reúne entregas, verificações e pendências operacionais. Este documento detalha o contrato e os limites do chat.
+
 ## Análise da estrutura existente
 
 O projeto permanece como módulo React/Vite incorporado ao SGDM, usando o pacote oficial `@sgdm/design`. O SGDM fornece sessão e navegação. O backend NestJS valida o JWT, consulta usuário/prefeitura ativos e aplica as permissões existentes. Não há autenticação nova.
@@ -10,7 +12,9 @@ O projeto permanece como módulo React/Vite incorporado ao SGDM, usando o pacote
 
 O chat oferece agente e modelo independentes, histórico geral do usuário, campo de múltiplas linhas e botão `+`. Enter envia; Shift+Enter acrescenta uma linha. A mudança de modelo vale para o próximo turno e não modifica o modelo padrão do agente. Cada resposta conserva o nome e o identificador do modelo/provedor usados.
 
-O histórico pertence à combinação usuário/prefeitura. Ao reabrir a conversa, o chat restaura agente e último modelo e exibe até 1000 mensagens recentes em ordem cronológica; os registros anteriores continuam no banco, sujeitos à política existente de retenção. O backend recebe o prompt original do agente, histórico recente, fontes das bases vinculadas, anexos autorizados e a mensagem atual. Somente respostas concluídas e persistidas são confirmadas ao navegador; interromper a geração não salva texto parcial.
+Uma mensagem textual é obrigatória, inclusive quando há anexos. Selecionar arquivos sem escrever uma mensagem não inicia uma chamada à IA.
+
+O histórico pertence à combinação usuário/prefeitura. A lateral lista até 100 conversas recentes. Ao reabrir uma conversa, o chat restaura agente e último modelo e exibe até 1000 mensagens recentes em ordem cronológica. Não há paginação para acessar conversas ou mensagens anteriores a esses limites pela interface; os registros anteriores continuam no banco, sujeitos à política existente de retenção. O backend recebe o prompt original do agente, histórico recente, fontes das bases vinculadas, anexos autorizados e a mensagem atual. Somente respostas concluídas e persistidas são confirmadas ao navegador; interromper a geração não salva texto parcial.
 
 O catálogo continua administrado em **Modelos** por `SUPER_ADMIN`. OpenAI, Anthropic e Google são provedores centrais; os nomes amigáveis e identificadores específicos do gateway são cadastrados nessa tela. Nenhum modelo é escolhido por uma lista hardcoded no chat.
 
@@ -33,7 +37,7 @@ Quando configurado, OmniRouter tem precedência para todas as famílias de model
 
 ## Anexos
 
-Documentos: PDF, TXT, CSV, XLSX, DOCX, MD, JSON, XML e HTML, com os extratores existentes. PDF digitalizado mantém OCR local em português. Imagens: PNG, JPEG e WEBP, enviadas como conteúdo multimodal apenas com OmniRouter e visão habilitada no modelo. XLS, ZIP, áudio e vídeo retornam erro de formato não suportado; não são apresentados como processamento disponível.
+Documentos: PDF, TXT, CSV, XLSX, DOCX, MD, JSON, XML e HTML, com os extratores existentes. PDF digitalizado mantém OCR local em português. Imagens: PNG, JPG/JPEG e WEBP estático, enviadas como conteúdo multimodal apenas com OmniRouter, visão habilitada e janela de contexto cadastrada no modelo. WEBP animado, XLS, ZIP, áudio e vídeo retornam erro de formato não suportado; não são apresentados como processamento disponível. A análise de imagens aguarda validação com URL, credencial e modelo habilitado na conta real do serviço.
 
 São aceitos até cinco anexos por turno, até 20 MB por documento e 10 MB por imagem. `CHAT_ATTACHMENT_MAX_BYTES` pode reduzir o limite de documentos. Imagens têm limite de 8192 pixels por lado e 16 milhões de pixels. O backend valida extensão, MIME, conteúdo, nome, tamanho, estrutura Office e decodificação de imagens. Arquivos não são executados nem publicados como URLs públicas.
 
@@ -55,6 +59,10 @@ A migration `20261005000100_chat_models_attachments` é aditiva: modelo opcional
 - `/api/conversations`: histórico existente ampliado com modelo/anexos seguros.
 
 As rotas de anexos usam `agents:execute`; usuários de chat não precisam receber permissão de administrar documentos compartilhados. Metadados públicos não contêm `storageKey`, chave de provedor ou proprietário de arquivo.
+
+As permissões existentes são definidas por perfil, recurso e prefeitura. Não há ACL individual por agente nem restrição automática pelo departamento do usuário.
+
+Pendência de alinhamento da ativação: o catálogo e a interface permitem conversar somente com agentes `ACTIVE`, mas `AiGatewayService.generate` rejeita apenas `ARCHIVED`. Uma chamada direta autorizada pode executar um agente `DRAFT`. Essa divergência está registrada no [status do projeto](STATUS_PROJETO.md) e permanece sem correção de código nesta atualização documental.
 
 ## Verificação
 
@@ -84,3 +92,5 @@ Os testes não consomem créditos de IA. A chamada real e as capacidades multimo
 - 115 capturas na [galeria SGDM](../output/verification/sgdm/index.html). O [relatório Playwright](../output/verification/sgdm/playwright-report/index.html) corresponde à última execução focada de 15 testes.
 
 As credenciais e a API real OmniRouter não estavam configuradas; essa validação não afirma acesso aos modelos reais da conta.
+
+A implementação no commit `701412c` também teve [CI aprovado no GitHub](https://github.com/cristhyna-lucena/i7ai-prefeituras/actions/runs/37360216695). Esse resultado não substitui a validação com a conta OmniRouter e o SGDM reais.
