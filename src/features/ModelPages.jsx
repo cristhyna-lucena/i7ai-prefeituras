@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Input, Select } from "@sgdm/design";
+import { Alert, Button, Card, Checkbox, Input, Select } from "@sgdm/design";
 import { useState } from 'react';
 import { Pencil, Save } from 'lucide-react';
 import { apiRequest } from '../api/client';
@@ -55,7 +55,13 @@ function ModelEditor({
     slug: model.slug || '',
     providerId: model.providerId || providers.find(provider => provider.capabilities?.supported)?.id || '',
     inputPrice: model.inputPrice == null ? '' : String(model.inputPrice),
-    outputPrice: model.outputPrice == null ? '' : String(model.outputPrice)
+    outputPrice: model.outputPrice == null ? '' : String(model.outputPrice),
+    supportsVision: model.capabilities?.supportsVision ?? false,
+    supportsTools: model.capabilities?.supportsTools ?? true,
+    supportsReasoning: model.capabilities?.supportsReasoning == null ? '' : String(model.capabilities.supportsReasoning),
+    supportsTemperature: model.capabilities?.supportsTemperature == null ? '' : String(model.capabilities.supportsTemperature),
+    contextWindow: model.capabilities?.contextWindow == null ? '' : String(model.capabilities.contextWindow),
+    maxOutputTokens: model.capabilities?.maxOutputTokens == null ? '' : String(model.capabilities.maxOutputTokens)
   });
   const [saving, setSaving] = useState(false),
     [error, setError] = useState('');
@@ -86,6 +92,26 @@ function ModelEditor({
       setError('Informe preços válidos entre 0 e 9999.999999 USD por milhão de tokens.');
       return;
     }
+    for (const field of ['contextWindow', 'maxOutputTokens']) {
+      const minimum = field === 'contextWindow' ? 4096 : 1;
+      const maximum = field === 'contextWindow' ? 2000000 : 200000;
+      if (form[field] !== '' && (!Number.isInteger(Number(form[field])) || Number(form[field]) < minimum || Number(form[field]) > maximum)) {
+        setError(field === 'contextWindow' ? 'Informe uma janela de contexto entre 4.096 e 2.000.000 tokens.' : 'Informe um limite de saída entre 1 e 200.000 tokens.');
+        return;
+      }
+    }
+    if (form.contextWindow && form.maxOutputTokens && Number(form.maxOutputTokens) > Number(form.contextWindow)) {
+      setError('O limite de saída deve caber na janela de contexto do modelo.');
+      return;
+    }
+    const capabilities = {
+      supportsVision: form.supportsVision,
+      supportsTools: form.supportsTools,
+      ...(form.supportsReasoning !== '' ? { supportsReasoning: form.supportsReasoning === 'true' } : {}),
+      ...(form.supportsTemperature !== '' ? { supportsTemperature: form.supportsTemperature === 'true' } : {}),
+      ...(form.contextWindow !== '' ? { contextWindow: Number(form.contextWindow) } : {}),
+      ...(form.maxOutputTokens !== '' ? { maxOutputTokens: Number(form.maxOutputTokens) } : {})
+    };
     setSaving(true);
     try {
       await apiRequest('/models' + (model.id ? '/' + model.id : ''), {
@@ -96,7 +122,8 @@ function ModelEditor({
           slug: form.slug.trim(),
           providerId: form.providerId,
           inputPrice,
-          outputPrice
+          outputPrice,
+          capabilities
         }
       });
       onSaved();
@@ -114,6 +141,18 @@ function ModelEditor({
       <Input required maxLength={200} value={form.slug} onChange={event => set('slug', event.target.value)} placeholder="Identificador exato fornecido pelo provedor" label={<>Identificador no provedor</>} />
       <div className="form-grid"><Input type="number" min="0" max="9999.999999" step="0.000001" value={form.inputPrice} onChange={event => set('inputPrice', event.target.value)} placeholder="Não configurado" label={<>Entrada · USD por milhão</>} /><Input type="number" min="0" max="9999.999999" step="0.000001" value={form.outputPrice} onChange={event => set('outputPrice', event.target.value)} placeholder="Não configurado" label={<>Saída · USD por milhão</>} /></div>
       <p>Deixe um preço vazio para remover sua configuração. Os custos já registrados permanecem no histórico.</p>
+      <Checkbox checked={form.supportsVision} onChange={event => set('supportsVision', event.target.checked)} label="Permite analisar imagens" />
+      <p>Para analisar imagens, configure também a janela de contexto em tokens confirmada pelo provedor.</p>
+      <Checkbox checked={form.supportsTools} onChange={event => set('supportsTools', event.target.checked)} label="Permite chamadas de ferramentas" />
+      <div className="form-grid">
+        <Select label="Raciocínio do modelo" value={form.supportsReasoning} onChange={event => set('supportsReasoning', event.target.value)}><option value="">Automático</option><option value="true">Suportado</option><option value="false">Não suportado</option></Select>
+        <Select label="Controle de temperatura" value={form.supportsTemperature} onChange={event => set('supportsTemperature', event.target.value)}><option value="">Automático</option><option value="true">Suportado</option><option value="false">Não suportado</option></Select>
+      </div>
+      <div className="form-grid">
+        <Input type="number" min="4096" max="2000000" step="1" value={form.contextWindow} onChange={event => set('contextWindow', event.target.value)} label="Janela de contexto (tokens)" placeholder="Padrão do servidor" />
+        <Input type="number" min="1" max="200000" step="1" value={form.maxOutputTokens} onChange={event => set('maxOutputTokens', event.target.value)} label="Limite de saída do modelo (tokens)" placeholder="Padrão do servidor" />
+      </div>
+      <p>Configure as capacidades e os limites confirmados pelo provedor para este modelo.</p>
       {selectedProvider && <p>{selectedProvider.capabilities?.integrationConfigured ? 'O acesso a este provedor está configurado no servidor.' : 'Cadastre o modelo e solicite ao administrador a configuração de acesso antes de conversar com o agente.'}</p>}
     </div><div className="modal-actions"><Button type="button" onClick={onClose} variant="secondary">Cancelar</Button><Button disabled={!canWrite || saving || !selectedProvider?.capabilities?.supported} variant="primary" icon={<Save size={15} />} type="submit">{saving ? 'Salvando...' : 'Salvar modelo'}</Button></div></form>
   </Modal>;

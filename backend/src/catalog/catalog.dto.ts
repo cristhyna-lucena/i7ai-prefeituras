@@ -1,5 +1,15 @@
 import { UserStatus } from '@prisma/client';
-import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class ModelCapabilitiesDto {
+  @IsOptional() @IsBoolean() supportsVision?: boolean;
+  @IsOptional() @IsBoolean() supportsTools?: boolean;
+  @IsOptional() @IsBoolean() supportsReasoning?: boolean;
+  @IsOptional() @IsBoolean() supportsTemperature?: boolean;
+  @IsOptional() @IsInt() @Min(4096) @Max(2000000) contextWindow?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(200000) maxOutputTokens?: number;
+}
 
 export class CreateModelDto {
   @IsUUID() providerId!: string;
@@ -7,6 +17,7 @@ export class CreateModelDto {
   @IsString() @IsNotEmpty() @MaxLength(200) @Matches(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/) slug!: string;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) @Max(9999.999999) inputPrice?: number | null;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) @Max(9999.999999) outputPrice?: number | null;
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => ModelCapabilitiesDto) capabilities?: ModelCapabilitiesDto | null;
 }
 export class UpdateModelDto {
   @ValidateIf((_object, value) => value !== undefined) @IsUUID() providerId?: string;
@@ -14,6 +25,7 @@ export class UpdateModelDto {
   @ValidateIf((_object, value) => value !== undefined) @IsString() @IsNotEmpty() @MaxLength(200) @Matches(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/) slug?: string;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) @Max(9999.999999) inputPrice?: number | null;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) @Max(9999.999999) outputPrice?: number | null;
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => ModelCapabilitiesDto) capabilities?: ModelCapabilitiesDto | null;
 }
 
 export class DepartmentDto {

@@ -50,7 +50,8 @@ export class DocumentPipelineService implements OnModuleInit, OnModuleDestroy {
       try { content = await extractDocumentText(document.name, buffer); }
       catch (error) { throw new UnrecoverableError(error instanceof Error ? error.message : 'Não foi possível extrair texto do documento.'); }
       const chunks = chunkDocument(content);
-      const vectors = await this.embeddings.embed(chunks);
+      // Private chat content must not be sent to a second provider for indexing.
+      const vectors = document.chatOnly ? null : await this.embeddings.embed(chunks);
       await this.prisma.$transaction(async (tx) => {
         const stillExists = await tx.document.findFirst({ where: { id: document.id, tenantId: job.data.tenantId } });
         if (!stillExists) return;

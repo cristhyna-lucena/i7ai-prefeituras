@@ -11,7 +11,7 @@ export function queryInput(input: Record<string, unknown>, configuredLimit = 10)
 }
 export async function internalQuery(prisma: PrismaService, tenantId: string, agentId: string, resource: string, query: string, take: number) {
   const name = { contains: query, mode: 'insensitive' as const };
-  if (resource === 'documents') return prisma.document.findMany({ where: { tenantId, name, status: 'READY', knowledgeBase: { tenantId, status: 'ACTIVE', agents: { some: { agentId, agent: { tenantId } } } } }, select: { id: true, name: true, mimeType: true, processedAt: true, knowledgeBaseId: true }, take, orderBy: { name: 'asc' } });
+  if (resource === 'documents') return prisma.document.findMany({ where: { tenantId, name, chatOnly: false, status: 'READY', knowledgeBase: { tenantId, status: 'ACTIVE', agents: { some: { agentId, agent: { tenantId } } } } }, select: { id: true, name: true, mimeType: true, processedAt: true, knowledgeBaseId: true }, take, orderBy: { name: 'asc' } });
   if (resource === 'knowledge-bases') return prisma.knowledgeBase.findMany({ where: { tenantId, name, status: 'ACTIVE', agents: { some: { agentId, agent: { tenantId } } } }, select: { id: true, name: true, description: true, status: true }, take, orderBy: { name: 'asc' } });
   if (resource === 'departments') return prisma.department.findMany({ where: { tenantId, name, status: 'ACTIVE' }, select: { id: true, name: true, description: true }, take, orderBy: { name: 'asc' } });
   if (resource === 'agents') return prisma.agent.findMany({ where: { tenantId, name, status: 'ACTIVE' }, select: { id: true, name: true, description: true }, take, orderBy: { name: 'asc' } });

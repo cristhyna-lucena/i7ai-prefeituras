@@ -50,3 +50,11 @@ Galeria completa: [capturas e painéis de conferência](../output/verification/s
 Backup anterior à migração: `output/backup/sgdm-before-migration-20261002`.
 
 Esta validação cobre as telas e os fluxos locais descritos acima na versão fixada do design system. A integração com o SGDM real ainda precisa ser conferida no ambiente de destino, com seu contexto de sessão, menu e dados reais. O contrato de integração está no README; a prévia não substitui essa conferência.
+
+## Atualização do chat em 5 de outubro de 2026
+
+O chat passou a usar seletores independentes de agente/modelo, histórico geral, `Textarea`, botão oficial de anexos e estados de upload/processamento. O editor de modelos recebeu capacidades e limites em tokens. O módulo preserva o pacote `@sgdm/design` 0.2.1 e a autenticação fornecida pelo host.
+
+Build e auditoria passaram: 18 arquivos e 241 usos de componentes oficiais. Os 39 testes completos de interface passaram, percorrendo as 16 telas, modais e prévia do host em desktop/celular. Após alinhar os anexos históricos ao contexto do backend, os 15 testes focados do chat passaram, incluindo dois novos cenários. Há 41 cenários distintos de interface e 115 capturas atuais; o relatório navegável registra essa última execução focada.
+
+As capturas `chat-models-1440.png`, `chat-models-390.png` e `chat-restored-attachments.png` mostram o novo fluxo. Galeria e painéis de conferência foram regenerados. Os testes usam dados sintéticos; a configuração e os resultados de backend estão em [Chat e OmniRouter](CHAT_OMNIROUTER.md).

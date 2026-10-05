@@ -55,11 +55,12 @@ export class AiQuotaService {
     });
   }
 
-  async runRound<T>(scope: QuotaScope, request: unknown, outputLimit: number, operation: (record: (usage: QuotaUsage) => Promise<void>) => Promise<T>): Promise<T> {
+  async runRound<T>(scope: QuotaScope, request: unknown, outputLimit: number, operation: (record: (usage: QuotaUsage) => Promise<void>) => Promise<T>, inputUpperBound?: number): Promise<T> {
     if (!Number.isSafeInteger(outputLimit) || outputLimit < 1) throw new BadRequestException('Limite de resposta inválido.');
-    // Text/function-only requests: UTF-8 bytes plus a framing allowance provide
-    // a conservative input bound. A custom gateway must respect maxTokens.
-    const budget = BigInt(Buffer.byteLength(JSON.stringify(request), 'utf8') + 2048 + outputLimit);
+    if (inputUpperBound !== undefined && (!Number.isSafeInteger(inputUpperBound) || inputUpperBound < 0)) throw new BadRequestException('Reserva de entrada inválida.');
+    // For images, the adapter reserves the verified model context window rather
+    // than mistaking base64 bytes for input tokens. Actual usage is still measured.
+    const budget = BigInt((inputUpperBound ?? Buffer.byteLength(JSON.stringify(request), 'utf8') + 2048) + outputLimit);
     const reservation = await this.reserve(scope, budget);
     let reported = false;
     try {
@@ -69,7 +70,7 @@ export class AiQuotaService {
     } catch (error) {
       if (!reported) {
         const candidate = error as { status?: number; providerStatus?: number };
-        const rejected = [400, 401, 403, 404, 422, 429].includes(candidate.providerStatus ?? candidate.status ?? 0);
+        const rejected = [400, 401, 402, 403, 404, 422, 429].includes(candidate.providerStatus ?? candidate.status ?? 0);
         if (rejected) await this.prisma.aiTokenReservation.update({ where: { id: reservation.id }, data: { status: 'REJECTED', reservedTokens: 0n, finishedAt: new Date() } });
         else await this.record(scope, reservation.id, { inputTokens: 0, outputTokens: 0, measured: false });
       }

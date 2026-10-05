@@ -141,6 +141,7 @@ model User {
   roles         UserRole[]
   agents        Agent[]
   conversations Conversation[]
+  chatDocuments Document[] @relation("ChatDocumentOwner")
   auditLogs     AuditLog[]
   usage         AiUsage[]
   createdAt     DateTime       @default(now())
@@ -236,9 +237,11 @@ model AiModel {
   slug        String
   inputPrice  Decimal?     @db.Decimal(10, 6)
   outputPrice Decimal?     @db.Decimal(10, 6)
+  capabilities Json?
   provider    AiProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
   agents      AgentModel[]
   usage       AiUsage[]
+  conversations Conversation[]
 
   @@unique([providerId, slug])
   @@map("ai_models")
@@ -291,13 +294,18 @@ model Document {
   sizeBytes       BigInt
   status          DocumentStatus  @default(UPLOADED)
   errorMessage    String?
+  chatOnly        Boolean         @default(false)
+  ownerUserId     String?         @db.Uuid
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   knowledgeBase   KnowledgeBase?  @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
   chunks          DocumentChunk[]
+  ownerUser       User?           @relation("ChatDocumentOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  messageAttachments MessageAttachment[]
   createdAt       DateTime        @default(now())
   processedAt     DateTime?
 
   @@index([tenantId, status])
+  @@index([tenantId, ownerUserId, chatOnly, createdAt])
   @@map("documents")
 }
 
@@ -359,15 +367,18 @@ model Conversation {
   userId    String    @db.Uuid
   agentId   String    @db.Uuid
   title     String?
+  modelId   String?   @db.Uuid
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  model     AiModel?  @relation(fields: [modelId], references: [id], onDelete: SetNull)
   messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@index([tenantId, userId])
   @@index([tenantId, updatedAt])
+  @@index([modelId])
   @@map("conversations")
 }
 
@@ -381,9 +392,21 @@ model Message {
   latencyMs      Int?
   metadata       Json?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments    MessageAttachment[]
   createdAt      DateTime     @default(now())
 
   @@map("messages")
+}
+
+model MessageAttachment {
+  messageId  String   @db.Uuid
+  documentId String   @db.Uuid
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, documentId])
+  @@index([documentId])
+  @@map("message_attachments")
 }
 
 model Automation {

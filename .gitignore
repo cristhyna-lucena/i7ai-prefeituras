@@ -14,6 +14,7 @@ deploy/.env.*
 /output/preview-server/
 /output/verification/frontend/
 /test-results/
+/output/verification/sgdm/test-results/
 /playwright-report/
 coverage/
 *.tsbuildinfo

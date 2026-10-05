@@ -5,7 +5,7 @@ import * as ExcelJS from 'exceljs';
 import { ocrPdfPages } from './pdf-ocr';
 
 export const DOCUMENT_MAX_BYTES = Math.min(100 * 1024 * 1024, Math.max(1024, Number(process.env.DOCUMENT_MAX_BYTES) || 50 * 1024 * 1024));
-const MIME_BY_EXTENSION: Record<string, string> = {
+export const MIME_BY_EXTENSION: Record<string, string> = {
   '.txt': 'text/plain', '.md': 'text/markdown', '.log': 'text/plain', '.csv': 'text/csv',
   '.json': 'application/json', '.xml': 'application/xml', '.html': 'text/html', '.htm': 'text/html',
   '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -21,6 +21,13 @@ export function validateDocument(file?: DocumentUpload): string {
   const extension = extname(file.originalname).toLowerCase();
   const mimeType = MIME_BY_EXTENSION[extension];
   if (!mimeType) throw new BadRequestException('Formato não suportado. Envie PDF, DOCX, XLSX, TXT, MD, CSV, JSON, XML ou HTML.');
+  const receivedMime = file.mimetype?.split(';')[0].trim().toLowerCase();
+  const aliases: Record<string, string[]> = {
+    '.md': ['text/plain'], '.log': ['text/plain'], '.csv': ['text/plain', 'application/vnd.ms-excel'],
+    '.json': ['text/json'], '.xml': ['text/xml'],
+    '.docx': ['application/zip', 'application/octet-stream'], '.xlsx': ['application/zip', 'application/octet-stream'],
+  };
+  if (receivedMime && receivedMime !== 'application/octet-stream' && receivedMime !== mimeType && !aliases[extension]?.includes(receivedMime)) throw new BadRequestException('O tipo MIME não corresponde à extensão do arquivo.');
   if (extension === '.pdf' && !file.buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'))) throw new BadRequestException('O conteúdo não é um PDF válido.');
   if (['.docx', '.xlsx'].includes(extension) && (file.buffer.length < 4 || file.buffer.readUInt16LE(0) !== 0x4b50)) throw new BadRequestException('O conteúdo não é um documento Office válido.');
   return mimeType;

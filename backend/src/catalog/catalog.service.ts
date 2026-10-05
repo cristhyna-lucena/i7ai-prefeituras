@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModelDto, CreateUserDto, DepartmentDto, LicenseDto, SettingsDto, UpdateDepartmentDto, UpdateModelDto, UpdateUserDto } from './catalog.dto';
 import { assertLicenseCapacity } from './license-policy';
+import { publicModelCapabilities } from './model-capabilities';
 
 const userSelect = {
   id: true, tenantId: true, departmentId: true, name: true, email: true, status: true,
@@ -31,11 +32,13 @@ export function validateModelPrice(value: unknown, field: string): number | null
 function providerMetadata(provider: { id: string; name: string; slug: string; config?: Prisma.JsonValue }) {
   const config = provider.config && typeof provider.config === 'object' && !Array.isArray(provider.config) ? provider.config as Record<string, unknown> : {};
   const directIntegration = provider.slug.toLowerCase() === 'openai';
-  const gatewayIntegration = Boolean(process.env.AI_GATEWAY_URL);
+  const omniRouter = Boolean(process.env.OMNIROUTER_BASE_URL || process.env.OMNIROUTER_API_KEY);
+  const omniRouterConfigured = Boolean(process.env.OMNIROUTER_BASE_URL && process.env.OMNIROUTER_API_KEY);
+  const gatewayIntegration = omniRouter || Boolean(process.env.AI_GATEWAY_URL);
   return { id: provider.id, name: provider.name, slug: provider.slug, capabilities: {
     supported: directIntegration || gatewayIntegration, directIntegration, gatewayIntegration,
-    integrationConfigured: gatewayIntegration || (directIntegration && Boolean(process.env.OPENAI_API_KEY)),
-    credentialsConfigured: gatewayIntegration ? Boolean(process.env.AI_GATEWAY_API_KEY) : directIntegration && Boolean(process.env.OPENAI_API_KEY),
+    integrationConfigured: omniRouter ? omniRouterConfigured : gatewayIntegration || (directIntegration && Boolean(process.env.OPENAI_API_KEY)),
+    credentialsConfigured: omniRouter ? Boolean(process.env.OMNIROUTER_API_KEY) : gatewayIntegration ? Boolean(process.env.AI_GATEWAY_API_KEY) : directIntegration && Boolean(process.env.OPENAI_API_KEY),
     supportsReasoning: typeof config.supportsReasoning === 'boolean' ? config.supportsReasoning : null,
     supportsTemperature: typeof config.supportsTemperature === 'boolean' ? config.supportsTemperature : null,
   } };
@@ -43,7 +46,7 @@ function providerMetadata(provider: { id: string; name: string; slug: string; co
 
 const modelInclude = { provider: { select: { id: true, name: true, slug: true } }, _count: { select: { agents: true } } } satisfies Prisma.AiModelInclude;
 function serializeModel(model: Prisma.AiModelGetPayload<{ include: typeof modelInclude }>) {
-  return { ...model, inputPrice: model.inputPrice === null ? null : Number(model.inputPrice), outputPrice: model.outputPrice === null ? null : Number(model.outputPrice) };
+  return { ...model, capabilities: publicModelCapabilities(model.capabilities), inputPrice: model.inputPrice === null ? null : Number(model.inputPrice), outputPrice: model.outputPrice === null ? null : Number(model.outputPrice) };
 }
 
 @Injectable()
@@ -121,7 +124,7 @@ export class CatalogService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await this.requireSupportedProvider(tx, input.providerId);
-        const model = await tx.aiModel.create({ data: { providerId: input.providerId, name: input.name.trim(), slug: input.slug.trim(), inputPrice, outputPrice }, include: modelInclude });
+        const model = await tx.aiModel.create({ data: { providerId: input.providerId, name: input.name.trim(), slug: input.slug.trim(), inputPrice, outputPrice, ...(input.capabilities !== undefined ? { capabilities: input.capabilities === null ? Prisma.DbNull : input.capabilities as Prisma.InputJsonObject } : {}) }, include: modelInclude });
         await tx.auditLog.create({ data: { tenantId, userId, event: 'model.created', resource: 'models', resourceId: model.id, metadata: { providerId: model.providerId, slug: model.slug } } });
         return serializeModel(model);
       });
@@ -140,7 +143,7 @@ export class CatalogService {
         const existing = await tx.aiModel.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException('Modelo não encontrado');
         await this.requireSupportedProvider(tx, input.providerId ?? existing.providerId);
-        const model = await tx.aiModel.update({ where: { id }, data: { providerId: input.providerId, name: input.name?.trim(), slug: input.slug?.trim(), inputPrice, outputPrice }, include: modelInclude });
+        const model = await tx.aiModel.update({ where: { id }, data: { providerId: input.providerId, name: input.name?.trim(), slug: input.slug?.trim(), inputPrice, outputPrice, ...(input.capabilities !== undefined ? { capabilities: input.capabilities === null ? Prisma.DbNull : input.capabilities as Prisma.InputJsonObject } : {}) }, include: modelInclude });
         await tx.auditLog.create({ data: { tenantId, userId, event: 'model.updated', resource: 'models', resourceId: model.id, metadata: { providerId: model.providerId, slug: model.slug } } });
         return serializeModel(model);
       });

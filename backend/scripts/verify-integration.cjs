@@ -56,7 +56,7 @@ function configure() {
   localEndpoint(process.env.S3_ENDPOINT || 'http://localhost:9000', ['http:', 'https:'], 'Armazenamento S3');
   childEnv = { ...process.env, DATABASE_URL: database.toString(), NODE_ENV: 'test', PORT: String(apiPort),
     REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379', S3_ENDPOINT: process.env.S3_ENDPOINT || 'http://localhost:9000', S3_BUCKET: process.env.S3_BUCKET || 'i7ai-documents',
-    AI_GATEWAY_URL: gatewayUrl, AI_GATEWAY_API_KEY: '', OPENAI_API_KEY: '', EMBEDDING_API_KEY: '',
+    AI_GATEWAY_URL: gatewayUrl, AI_GATEWAY_API_KEY: '', OMNIROUTER_BASE_URL: '', OMNIROUTER_API_KEY: '', OPENAI_API_KEY: '', EMBEDDING_API_KEY: '',
     OPENAI_BASE_URL: gatewayUrl, EMBEDDING_BASE_URL: gatewayUrl,
     SGDM_JWT_SECRET: jwtSecret, SGDM_JWT_ISSUER: 'fixture-sgdm', SGDM_JWT_AUDIENCE: 'i7ai-fixture', JWT_SECRET: '',
     QUEUE_PREFIX: queuePrefix, PGOPTIONS: '',
@@ -195,7 +195,7 @@ async function seedFixtureCatalogue() {
       await prisma.rolePermission.create({ data: { roleId: role.id, permissionId: permission.id } });
     }
   }
-  const provider = await prisma.aiProvider.create({ data: { name: 'Provedor de teste local', slug: 'openai' } });
+  const provider = await prisma.aiProvider.upsert({ where: { slug: 'openai' }, update: {}, create: { name: 'Provedor de teste local', slug: 'openai' } });
   await prisma.aiModel.create({ data: { providerId: provider.id, name: 'Modelo simulado da integração', slug: 'integration-fixture-model', inputPrice: 1, outputPrice: 2 } });
 }
 async function startApi() {
@@ -290,6 +290,35 @@ async function verifyFlows() {
   expectStatus(await request('/conversations/' + chat.data.conversationId, b.token), 404, 'Isolamento da conversa');
   stage('SSE com provedor JSON simulado'); await verifySse(agent, a.token, chat.data.conversationId, uploaded.data.id);
   assert.equal((await request('/conversations/' + chat.data.conversationId, a.token)).data.messages.length, 6);
+  stage('modelo independente e anexos privados do chat');
+  const catalog = await request('/chat/catalog', a.token); expectStatus(catalog, 200, 'Catálogo do chat');
+  assert.ok(catalog.data.agents.some(item => item.id === agent.id)); assert.ok(catalog.data.agents.every(item => item.tenantId === a.tenant.id));
+  const anthropic = await prisma.aiProvider.findUnique({ where: { slug: 'anthropic' } });
+  const alternative = await prisma.aiModel.create({ data: { providerId: anthropic.id, name: 'Claude fixture', slug: 'integration-claude-fixture', capabilities: { supportsTools: true } } });
+  const privateForm = new FormData(); privateForm.append('file', new Blob(['RELATORIO_PRIVADO_FIXTURE: a despesa total é de 123 reais.'], { type: 'text/plain' }), 'relatorio-privado.txt');
+  const attachment = await request('/chat/attachments', a.token, 'POST', privateForm); expectStatus(attachment, 201, 'Anexo privado');
+  assert.ok(!('storageKey' in attachment.data)); assert.ok(!('ownerUserId' in attachment.data));
+  await poll('/chat/attachments/' + attachment.data.id, a.token, item => item.status === 'READY');
+  const documents = await request('/documents', a.token); assert.ok(documents.data.every(item => item.id !== attachment.data.id));
+  expectStatus(await request('/documents/' + attachment.data.id + '/download', a.token), 404, 'Anexo fora da área compartilhada');
+  expectStatus(await request('/chat/attachments/' + attachment.data.id, b.token), 404, 'Anexo de outra prefeitura');
+  const peer = await prisma.user.create({ data: { tenantId: a.tenant.id, name: 'Outro usuário fixture', email: randomUUID() + '@example.invalid', status: 'ACTIVE', roles: { create: { roleId: (await prisma.role.findUnique({ where: { name: 'ADMIN' } })).id } } } });
+  const peerToken = jwt.sign({ sub: peer.id, tenantId: a.tenant.id }, { issuer: 'fixture-sgdm', audience: 'i7ai-fixture', expiresIn: '1h' }); sensitiveValues.add(peerToken);
+  expectStatus(await request('/chat/attachments/' + attachment.data.id, peerToken), 404, 'Anexo de outro usuário da mesma prefeitura');
+  const privateChat = await request('/agents/' + agent.id + '/chat', a.token, 'POST', { message: 'Analise o relatório anexado.', conversationId: chat.data.conversationId, modelId: alternative.id, attachmentIds: [attachment.data.id] }); expectStatus(privateChat, 201, 'Chat com modelo e anexo');
+  assert.equal(privateChat.data.modelId, alternative.id); assert.equal(gatewayCalls.at(-1).input.model, alternative.slug);
+  assert.ok(gatewayCalls.at(-1).input.agent.systemPrompt.includes('RELATORIO_PRIVADO_FIXTURE'));
+  assert.equal((await prisma.agentModel.findFirst({ where: { agentId: agent.id, isPrimary: true } })).modelId, models.data[0].id);
+  const privateHistory = await request('/conversations/' + chat.data.conversationId, a.token);
+  assert.equal(privateHistory.data.modelId, alternative.id);
+  assert.equal(privateHistory.data.messages.at(-2).attachments[0].document.id, attachment.data.id);
+  assert.ok(!JSON.stringify(privateHistory.data).includes('storageKey'));
+  expectStatus(await request('/chat/attachments/' + attachment.data.id, a.token, 'DELETE'), 409, 'Anexo vinculado não é removido isoladamente');
+  const callsBeforeIdor = gatewayCalls.length;
+  expectStatus(await request('/agents/' + agent.id + '/chat', peerToken, 'POST', { message: 'Acesso indevido', modelId: alternative.id, attachmentIds: [attachment.data.id] }), 404, 'Uso de anexo alheio');
+  assert.equal(gatewayCalls.length, callsBeforeIdor);
+  const invalidForm = new FormData(); invalidForm.append('file', new Blob(['arquivo ZIP falso'], { type: 'application/zip' }), 'nao-suportado.zip');
+  expectStatus(await request('/chat/attachments', a.token, 'POST', invalidForm), 400, 'ZIP não suportado');
   stage('execução e agendamento');
   const automation = await request('/automations', a.token, 'POST', { name: 'Rotina Integrada', agentId: agent.id, status: 'ACTIVE', timeoutSeconds: 30, retries: 1, steps: [{ name: 'Consultar agente', actionType: 'AGENT', configuration: { prompt: 'Qual o prazo das licitações?' } }] }); expectStatus(automation, 201, 'Automação');
   const executed = await request('/automations/' + automation.data.id + '/run', a.token, 'POST', { input: { test: true } }); expectStatus(executed, 201, 'Execução');
@@ -297,7 +326,7 @@ async function verifyFlows() {
   const schedule = await request('/automations/' + automation.data.id + '/schedules', a.token, 'POST', { name: 'Agenda de Teste', cronExpression: '0 8 * * *', timezone: 'America/Cuiaba', enabled: true }); expectStatus(schedule, 201, 'Agendamento'); assert.ok(schedule.data.nextRunAt);
   expectStatus(await request('/automations/' + automation.data.id, b.token), 404, 'Isolamento da automação');
   stage('consumo, auditoria e permissões');
-  assert.equal(gatewayCalls.length, 4, 'Somente quatro chamadas ao provedor local simulado'); assert.ok(gatewayCalls.every(call => !call.authorization && call.input.model === 'integration-fixture-model'));
+  assert.equal(gatewayCalls.length, 5, 'Somente cinco chamadas ao provedor local simulado'); assert.ok(gatewayCalls.every(call => !call.authorization && ['integration-fixture-model', 'integration-claude-fixture'].includes(call.input.model)));
   const dashboard = await request('/dashboard', a.token); expectStatus(dashboard, 200, 'Dashboard'); assert.equal(dashboard.data.agents, 1); assert.equal(dashboard.data.requests, gatewayCalls.length);
   const audit = await request('/audit', a.token); expectStatus(audit, 200, 'Auditoria'); assert.ok(audit.data.some(item => item.event === 'agent.chat_completed'));
   const license = await request('/licensing', a.token); expectStatus(license, 200, 'Licenciamento'); assert.equal(license.data.usage.agents, 1);

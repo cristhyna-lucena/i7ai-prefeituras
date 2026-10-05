@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAgentDto, UpdateAgentDto } from './dto/create-agent.dto';
 import { assertLicenseCapacity } from '../catalog/license-policy';
+import { publicModelCapabilities } from '../catalog/model-capabilities';
 
 const agentInclude = {
   department: true,
@@ -14,6 +15,7 @@ const agentInclude = {
 type AgentRecord = Prisma.AgentGetPayload<{ include: typeof agentInclude }>;
 function serialize(agent: AgentRecord) {
   return { ...agent, temperature: Number(agent.temperature),
+    models: agent.models.map(binding => ({ ...binding, model: { ...binding.model, capabilities: publicModelCapabilities(binding.model.capabilities) } })),
     modelId: agent.models.find((binding) => binding.isPrimary)?.modelId ?? agent.models[0]?.modelId ?? null,
     knowledgeBaseIds: agent.knowledgeBases.map((binding) => binding.knowledgeBaseId),
     toolIds: agent.tools.filter((binding) => binding.enabled).map((binding) => binding.toolId),

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class ChatDto {
   @IsString()
@@ -9,4 +9,10 @@ export class ChatDto {
   @IsOptional()
   @IsUUID()
   conversationId?: string;
+
+  @IsOptional() @IsUUID()
+  modelId?: string;
+
+  @IsOptional() @IsArray() @ArrayUnique() @ArrayMaxSize(5) @IsUUID('all', { each: true })
+  attachmentIds?: string[];
 }

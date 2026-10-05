@@ -8,6 +8,11 @@ import { ToolsModule } from '../tools/tools.module';
 import { McpModule } from '../mcp/mcp.module';
 import { AgentToolsService } from './agent-tools.service';
 import { AiQuotaService } from './ai-quota.service';
+import { OmniRouterService } from './omnirouter.service';
+import { ChatAttachmentsController } from './chat-attachments.controller';
+import { ChatCatalogController } from './chat-catalog.controller';
+import { AgentsModule } from '../agents/agents.module';
+import { CatalogModule } from '../catalog/catalog.module';
 
-@Module({ imports: [AuthModule, KnowledgeModule, ToolsModule, McpModule], controllers: [AiGatewayController, ConversationsController], providers: [AiGatewayService, AgentToolsService, AiQuotaService], exports: [AiGatewayService] })
+@Module({ imports: [AuthModule, KnowledgeModule, ToolsModule, McpModule, AgentsModule, CatalogModule], controllers: [AiGatewayController, ConversationsController, ChatAttachmentsController, ChatCatalogController], providers: [AiGatewayService, AgentToolsService, AiQuotaService, OmniRouterService], exports: [AiGatewayService] })
 export class AiGatewayModule {}

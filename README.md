@@ -44,9 +44,11 @@ O servidor verifica limites de usuários, agentes, bases, automações e armazen
 
 ## IA e documentos
 
-Configure `OPENAI_API_KEY` para usar a Responses API com o modelo escolhido no agente. Raciocínio avançado exige modelo compatível. Preços são cadastrados pelo administrador da plataforma, em USD por milhão de tokens; preços ausentes aparecem como não configurados.
+O chat permite escolher agente e modelo separadamente, reabrir o histórico e enviar anexos privados. A integração central OmniRouter usa `OMNIROUTER_BASE_URL` e `OMNIROUTER_API_KEY` somente no backend. Os modelos são cadastrados no catálogo existente com os identificadores da conta do gateway. Consulte a [implementação e configuração do chat](docs/CHAT_OMNIROUTER.md), incluindo migration aditiva, formatos suportados e capacidades por modelo.
 
-Alternativamente, configure `AI_GATEWAY_URL`. O backend envia `POST <gateway>/chat` com agente, modelo, provedor, mensagem, histórico e contexto. A resposta deve conter `answer` e, para consumo medido, `usage.inputTokens`/`usage.outputTokens`. Esse contrato JSON entrega a resposta completa; o streaming incremental direto usa OpenAI. Veja o [contrato do gateway e ferramentas](docs/GATEWAY.md).
+Em ambientes anteriores sem OmniRouter, `OPENAI_API_KEY` mantém a Responses API com o modelo selecionado. Raciocínio avançado exige modelo compatível. Preços são cadastrados pelo administrador da plataforma, em USD por milhão de tokens; preços ausentes aparecem como não configurados.
+
+O contrato legado `AI_GATEWAY_URL` também permanece disponível quando OmniRouter não estiver configurado. O backend envia `POST <gateway>/chat` com agente, modelo, provedor, mensagem, histórico e contexto. A resposta deve conter `answer` e, para consumo medido, `usage.inputTokens`/`usage.outputTokens`. Esse contrato JSON entrega a resposta completa; os adaptadores OmniRouter e OpenAI oferecem streaming incremental. Veja o [contrato do gateway e ferramentas](docs/GATEWAY.md).
 
 Há extração real de PDF, DOCX, XLSX, TXT, MD, CSV, JSON, XML e HTML, com limite padrão de 50 MB e processamento em fila. Páginas de PDF sem texto passam por OCR local em português; o modelo acompanha as dependências e os documentos não são enviados a um serviço externo de OCR. PDFs mistos preservam as páginas com texto. Cada arquivo admite até 20 páginas que precisem de OCR, com limite de imagem e tempo; digitalizações ilegíveis geram erro de processamento. Com `EMBEDDING_API_KEY` ou `OPENAI_API_KEY`, o pipeline gera embeddings de 1.536 dimensões e pesquisa semântica nas bases ativas vinculadas ao agente. Sem esse provedor, a pesquisa usa termos literais. A indexação pode gerar cobrança do provedor configurado.
 

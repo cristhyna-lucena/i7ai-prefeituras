@@ -39,7 +39,7 @@ export class RagService {
             JOIN "documents" d ON d."id" = dc."documentId"
             JOIN "knowledge_bases" kb ON kb."id" = d."knowledgeBaseId"
             WHERE d."tenantId" = ${tenantId}::uuid AND kb."tenantId" = ${tenantId}::uuid
-              AND d."status" = 'READY' AND kb."status" = 'ACTIVE' AND dc."embedding" IS NOT NULL
+              AND d."chatOnly" = false AND d."status" = 'READY' AND kb."status" = 'ACTIVE' AND dc."embedding" IS NOT NULL
               AND dc."metadata"->>'embeddingModel' = ${this.embeddings.model} ${baseFilter}
               AND 1 - (dc."embedding" <=> ${JSON.stringify(vectors[0])}::vector) >= 0.2
             ORDER BY dc."embedding" <=> ${JSON.stringify(vectors[0])}::vector, dc."id"
@@ -63,7 +63,7 @@ export class RagService {
       JOIN "documents" d ON d."id" = dc."documentId"
       JOIN "knowledge_bases" kb ON kb."id" = d."knowledgeBaseId"
       WHERE d."tenantId" = ${tenantId}::uuid AND kb."tenantId" = ${tenantId}::uuid
-        AND d."status" = 'READY' AND kb."status" = 'ACTIVE' ${baseFilter}
+        AND d."chatOnly" = false AND d."status" = 'READY' AND kb."status" = 'ACTIVE' ${baseFilter}
         AND (${Prisma.join(matches, ' OR ')})
       ORDER BY (${score}) DESC, d."createdAt" DESC, dc."chunkIndex", dc."id"
       LIMIT ${safeLimit}
