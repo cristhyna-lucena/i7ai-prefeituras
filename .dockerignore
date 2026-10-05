@@ -1,0 +1,20 @@
+# Only frontend source and build configuration enter this context.
+*
+!Dockerfile
+!nginx.conf
+!package.json
+!package-lock.json
+!index.html
+!src/
+!src/**
+!public/
+!public/**
+!vite.config.*
+!postcss.config.*
+!tailwind.config.*
+**/.env*
+**/*.pem
+**/*.key
+**/*.pfx
+**/node_modules
+**/.git

@@ -1,0 +1,40 @@
+const now='2026-10-02T12:00:00Z';
+const department={id:'dept-1',name:'Administração',description:'Gestão municipal',status:'ACTIVE'};
+const provider={id:'provider-1',name:'OpenAI',capabilities:{supported:true,directIntegration:true,integrationConfigured:true}};
+const model={id:'model-1',name:'Modelo municipal',slug:'modelo-teste',providerId:provider.id,provider,inputPrice:1,outputPrice:2,_count:{agents:1}};
+const base={id:'base-1',name:'Legislação municipal',description:'Normas e orientações',status:'ACTIVE',updatedAt:now,_count:{documents:1,agents:1}};
+const tool={id:'tool-1',name:'Consulta ao portal',type:'HTTP_REQUEST',description:'Consulta ao portal público municipal.',status:'ACTIVE',allowedDomains:['portal.example.test'],config:{endpoint:'https://portal.example.test',method:'GET'},credentials:[]};
+const agent={id:'agent-1',name:'Assistente de Gestão',description:'Orientações para a administração municipal.',systemPrompt:'Responda com base nos documentos.',status:'ACTIVE',departmentId:department.id,department,models:[{modelId:model.id,isPrimary:true,model}],tools:[{toolId:tool.id,enabled:true,tool}],knowledgeBases:[{knowledgeBaseId:base.id}],temperature:0.2,maxTokens:4000};
+const schedule={id:'schedule-1',name:'Resumo diário',cronExpression:'0 8 * * 1-5',timezone:'America/Cuiaba',enabled:true,nextRunAt:now};
+const automation={id:'automation-1',name:'Resumo de gestão',description:'Consolida informações do município.',agentId:agent.id,agent,status:'ACTIVE',timeoutSeconds:300,retries:2,steps:[{id:'step-1',name:'Preparar resumo',actionType:'AGENT',configuration:{prompt:'Prepare um resumo.'}}],schedules:[schedule]};
+const execution={id:'execution-1',automation,agent,schedule,status:'SUCCESS',startedAt:now,finishedAt:now,createdAt:now,durationMs:2500,input:{},output:{result:{answer:'Resumo concluído.'},steps:[{stepId:'step-1',name:'Preparar resumo',actionType:'AGENT',output:{answer:'Orientações consolidadas.'}}]}};
+export const fixtures={
+  '/auth/me':{id:'user-1',name:'Ana de Teste',email:'ana@example.test',roles:['SUPER_ADMIN'],permissions:['*']},
+  '/agents':[agent],'/departments':[department],'/models':[model],'/providers':[provider],'/tools':[tool],'/knowledge-bases':[base],
+  '/documents':[{id:'doc-1',name:'Guia municipal.pdf',knowledgeBaseId:base.id,status:'READY',sizeBytes:123000,updatedAt:now}],
+  '/automations':[automation],'/executions':[execution],'/executions/execution-1':execution,
+  '/conversations':[{id:'conversation-1',title:'Orientação municipal',updatedAt:now}],
+  '/conversations/conversation-1':{messages:[{id:'message-1',role:'user',content:'Como consultar as orientações?',createdAt:now},{id:'message-2',role:'assistant',content:'Consulte o guia municipal na base de conhecimento.',createdAt:now,metadata:{sources:[{id:'doc-1',documentName:'Guia municipal.pdf'}]}}]},
+  '/users':[{id:'user-1',name:'Ana de Teste',email:'ana@example.test',department,status:'ACTIVE',roles:[{roleId:'role-1',role:{name:'ADMIN'}}]}],
+  '/roles':[{id:'role-1',name:'ADMIN'}],'/settings':{name:'Prefeitura de Teste',settings:{organizationName:'Prefeitura de Teste',timezone:'America/Cuiaba',locale:'pt-BR',retentionDays:365}},
+  '/licensing':{license:{id:'license-1',status:'ACTIVE',maxUsers:20,maxAgents:10,maxAutomations:10,maxKnowledgeBases:10,maxTokens:'1000000',maxStorageBytes:'10737418240',startDate:now,endDate:null},usage:{users:1,agents:1,automations:1,knowledgeBases:1,tokensThisMonth:2100,storageBytes:123000}},
+  '/dashboard':{agents:1,conversations:1,automations:1,documents:1,requests:3,inputTokens:1500,outputTokens:600,timezone:'America/Cuiaba',daily:[{date:'2026-10-01',inputTokens:800,outputTokens:300},{date:'2026-10-02',inputTokens:700,outputTokens:300}],executions:[{status:'SUCCESS',count:1}],recent:[{event:'Agente atualizado',resource:'agents',createdAt:now}]},
+  '/reports':{inputTokens:1500,outputTokens:600,requests:3,cost:0.0027,models:[{name:model.name,provider:provider.name,inputTokens:1500,outputTokens:600,cost:0.0027,costConfigured:true}]},
+  '/audit':[{id:'audit-1',event:'Agente atualizado',resource:'agents',user:{name:'Ana de Teste'},createdAt:now}],
+};
+export async function mockSession(page,{overrides={},writes=[],context={}}={}) {
+  await page.addInitScript(context=>{window.__SGDM_CONTEXT__={accessToken:'fixture-session',tenantName:'Prefeitura de Teste',organizationName:'SGDM',modulePage:new URLSearchParams(location.search).get('module')||'dashboard',navigationManagedByHost:false,...context};},context);
+  await page.route('http://localhost:3000/api/**',async route=>{
+    const req=route.request(),url=new URL(req.url()),path=url.pathname.replace(/^\/api/,'');
+    if(req.method()==='OPTIONS')return route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'}});
+    const headers={'Access-Control-Allow-Origin':'*'};
+    if(req.method()!=='GET'){writes.push({path,method:req.method(),body:req.postData()});return route.fulfill({status:200,json:{id:'fixture-new'},headers});}
+    if(Object.hasOwn(overrides,path)){
+      const result=overrides[path];if(result?.error)return route.fulfill({status:500,json:{message:result.error},headers});
+      if(result?.delay)await new Promise(resolve=>setTimeout(resolve,result.delay));
+      return route.fulfill({status:200,json:result?.data??result,headers});
+    }
+    if(!Object.hasOwn(fixtures,path))throw new Error('Unmocked endpoint: '+path);
+    return route.fulfill({status:200,json:fixtures[path],headers});
+  });
+}

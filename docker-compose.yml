@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: i7ai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: i7ai
+      POSTGRES_PASSWORD: i7ai_dev
+      POSTGRES_DB: i7ai
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - i7ai_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U i7ai -d i7ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: i7ai-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - i7ai_redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: i7ai-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: i7ai
+      MINIO_ROOT_PASSWORD: i7ai_dev_minio
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - i7ai_minio_data:/data
+
+volumes:
+  i7ai_postgres_data:
+  i7ai_redis_data:
+  i7ai_minio_data:

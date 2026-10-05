@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+backend/.env
+.env.*
+!.env.example
+deploy/.env.*
+!deploy/.env.production.example
+!deploy/.env.provision.example
+*.log
+
+# Backups and local build/preview artifacts
+/output/backup/
+/output/preview-server/
+/output/verification/frontend/
+/test-results/
+/playwright-report/
+coverage/
+*.tsbuildinfo

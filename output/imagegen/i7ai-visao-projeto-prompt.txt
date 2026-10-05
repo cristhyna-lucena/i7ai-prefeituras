@@ -1,0 +1,43 @@
+Use case: ui-mockup.
+Asset type: high-resolution overview image of the existing i7Ai web project, using its current SGDM-derived design system.
+Primary request: Create ONE polished, faithful presentation image showing three screens of the CURRENT i7Ai municipal AI platform. Use the attached image ONLY as a visual language / brand reference. This is a visual representation of an existing implementation, so preserve the exact project content described here. Do not copy its old ER diagram or old login screen.
+Input image 1 (sgdm-design-system.png): style and brand reference only. Match the white cards, dark navy navigation, violet controls, restrained cyan/violet i7Ai mark, tiny outlined icons and soft light backgrounds.
+Composition: landscape image, ideally 3840 x 2160, crisp flat front-facing interface panels, no device hardware, no perspective or tilted windows. An elegant light gray presentation canvas, a thin dark navy header with i7Ai logo and exact title "i7Ai · Visão do projeto". Smaller subtitle "Plataforma de IA para Prefeituras · Referência SGDM". THREE clearly separated app views: one large Dashboard occupying roughly the left 60% of the image; on the right, two vertically stacked views, Agentes de IA and Automações. Keep clean 24px gutters, generous legibility, carefully aligned white panels. Dashboard is dominant and complete. Secondary screens keep their main content readable. A slim bottom style strip with heading "Design system" shows Inter Aa and five tasteful color swatches: Primária #635BFF, Navegação #0F172A, Fundo #F5F7FB, Superfície #FFFFFF, Borda #E2E8F0. Keep the style strip subordinate to the actual UI. No numbered prototype bars.
+
+CURRENT DESIGN SYSTEM: Inter font everywhere, navy sidebar #0F172A, primary violet #635BFF, page background #F5F7FB, white surfaces #FFFFFF, borders #E2E8F0, titles #1E293B, secondary text #64748B. Rounded cards 12px, panels 11px, buttons and controls 7px. Thin consistent Lucide-style outline icons. Green #10B981 for Ativo/Concluído, blue #3B82F6 for Executando, amber #F59E0B, red #EF4444 for Falhou. Extremely subtle shadows and precise spacing, professional public administration SaaS. Do not switch the primary buttons to royal blue; the local i7Ai adaptation is violet.
+
+SCREEN 1 — DASHBOARD, current implementation:
+Full desktop app shell with a narrow dark navy sidebar proportional to a 260px sidebar on a 1440px viewport and a 66px white topbar. Sidebar brand "i7Ai", small "Gov Intelligence", tenant selector "Prefeitura de Mogi" and sublabel "Módulo integrado ao SGDM".
+Nav grouped by small uppercase section captions. "VISÃO GERAL": selected "Dashboard" with solid violet highlight. "INTELIGÊNCIA": "Novo chat", "Agentes de IA", "Modelos", "Execuções". "CONHECIMENTO": "Bases de conhecimento", "Documentos". "AUTOMAÇÃO": "Automações", "Agendamentos". "FERRAMENTAS": "Ferramentas & MCP" (small MCP badge), "Integrações". "ORGANIZAÇÃO": "Usuários", "Departamentos", "Relatórios". Below: "Configurações", a help card "Precisa de ajuda?", profile circle JS and "João da Silva", "Administrador". Render nav legibly with restrained compact spacing.
+Topbar breadcrumb "i7Ai / Bom dia, João!", small help/activity icons and JS avatar on the right.
+Content: small eyebrow "Visão geral" with a green dot and "Operação normal"; prominent heading "Bom dia, João!" and subtitle "Aqui está um resumo da sua plataforma."; outlined right-aligned button "Exportar relatório".
+Four KPI cards in one row: "Agentes" 12 with green +2; "Conversas" 1.284 with green +16%; "Automações" 8 and "3 ativas"; "Tokens" 2.4M with red -12%. Each has a little softly tinted icon tile.
+Below, two panels: "Uso de tokens" with period "Últimos 30 dias" and a gently rising violet line with pale violet fill; "Conversas por departamento" with donut and tiny legend Administração 35%, Saúde 25%, Educação 20%, Finanças 10%, Obras 10%. Donut uses restrained violet, green, amber, rose, gray.
+Next row: "Agentes mais utilizados" list with Assistente Jurídico, Assistente de Licitações, Assistente de RH, Assistente de Obras; small pastel initials tiles and status badges. Neighbor card "Atividade recente" with compact task/event rows.
+Bottom quick-start card "Comece por aqui" with three action tiles "Criar agente", "Conectar conhecimento", "Criar automação".
+
+SCREEN 2 — AGENTES DE IA, current implementation:
+Use the same topbar/background/cards/control style. Compact sidebar may show current selected item "Agentes de IA" if room; do not let sidebar consume the actual screen content.
+Heading "Agentes de IA", subtitle "Crie, configure e acompanhe seus agentes inteligentes.", violet button "+ Novo agente". Search "Buscar agentes..." and filter "Todos os departamentos".
+Four cards in a balanced 2 by 2 grid. Pastel initials icon, title, department, model, connected knowledge bases, small status badge, subtle three-dot menu, footer action "Abrir agente".
+Assistente Jurídico | Jurídico | GPT-4o | 2 bases | Ativo.
+Assistente de Licitações | Compras | Claude 3.5 | 3 bases | Ativo.
+Assistente de RH | Recursos Humanos | GPT-4o mini | 1 base | Ativo.
+Assistente de Obras | Infraestrutura | Gemini 1.5 | — | Rascunho.
+Avoid giant empty zones. Cards have crisp text and compact metadata.
+
+SCREEN 3 — AUTOMAÇÕES, current implementation:
+Same shell design. Heading "Automações", subtitle "Orquestre tarefas que rodam sozinhas, no horário certo.", violet button "+ Adicionar novo".
+White builder card, heading "Fluxo de automação". Four horizontal connected step tiles, thin connector arrows and pastel icon squares:
+1 "GATILHO" — "Todos os dias às 08:00"
+2 "AGENTE" — "Assistente de Licitações"
+3 "FERRAMENTA" — "Consultar servidor MCP"
+4 "SAÍDA" — "Salvar e enviar resumo"
+Below compact white table labeled "Automações recentes" with column headings "Automação", "Disparo", "Agente", "Status".
+Rows: "Relatório Diário de Licitações" | "Diário 08:00" | "Assistente de Licitações" | "Ativo" (green);
+"Monitorar Novos Editais" | "A cada 1 hora" | "Assistente de Licitações" | "Ativo" (green);
+"Resumo Jurídico Semanal" | "Seg 09:00" | "Assistente Jurídico" | "Ativo" (green).
+A small helper line can read "Módulo integrado ao SGDM" only if naturally present.
+
+Text: Brazilian Portuguese, correct accents, exact main labels, no garbled strings, prioritize legibility over adding dense extras.
+Constraints: faithfully show current project modules and content; match current local SGDM-adapted tokens; include exactly these three screen views; no SQL tables, database diagram, login screen, phone mockups, decorative robots, 3D gloss, gradients outside small brand mark, invented product names, invented extra features, watermarks, or unexplained metrics. Elegant implementation reference, not marketing fantasy.

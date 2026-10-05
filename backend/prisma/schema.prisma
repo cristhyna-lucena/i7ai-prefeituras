@@ -1,0 +1,550 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum AgentStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ToolType {
+  HTTP_REQUEST
+  WEBHOOK
+  REST_API
+  N8N
+  EXTERNAL_SEARCH
+  INTERNAL_DATABASE
+  MCP_SERVER
+}
+
+enum ToolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AutomationStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum TriggerType {
+  MANUAL
+  SCHEDULE
+  CRON
+  WEBHOOK
+  INTERNAL_EVENT
+  API
+  FILE_RECEIVED
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Tenant {
+  id             String                @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String                @unique
+  status         String                @default("ACTIVE")
+  settings       Json?
+  users          User[]
+  departments    Department[]
+  agents         Agent[]
+  licenses       License[]
+  knowledgeBases KnowledgeBase[]
+  documents      Document[]
+  tools          Tool[]
+  integrations   Integration[]
+  automations    Automation[]
+  executions     AutomationExecution[]
+  auditLogs      AuditLog[]
+  usage          AiUsage[]
+  tokenReservations AiTokenReservation[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @default(now()) @updatedAt
+  Conversation   Conversation[]
+
+  @@map("tenants")
+}
+
+model License {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @db.Uuid
+  status            String    @default("ACTIVE")
+  startDate         DateTime  @default(now())
+  endDate           DateTime?
+  maxUsers          Int       @default(10)
+  maxAgents         Int       @default(10)
+  maxAutomations    Int       @default(10)
+  maxStorageBytes   BigInt    @default(10737418240)
+  maxTokens         BigInt    @default(1000000)
+  maxKnowledgeBases Int       @default(10)
+  features          Json?
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId, status])
+  @@map("licenses")
+}
+
+model Department {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  name        String
+  description String?
+  status      String  @default("ACTIVE")
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+  agents      Agent[]
+
+  @@unique([tenantId, name])
+  @@map("departments")
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @db.Uuid
+  departmentId  String?        @db.Uuid
+  name          String
+  email         String         @unique
+  passwordHash  String?
+  status        UserStatus     @default(INVITED)
+  lastAccessAt  DateTime?
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department    Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  roles         UserRole[]
+  agents        Agent[]
+  conversations Conversation[]
+  auditLogs     AuditLog[]
+  usage         AiUsage[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id       String           @id @default(uuid()) @db.Uuid
+  resource String
+  action   String
+  roles    RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Agent {
+  id                String                @id @default(uuid()) @db.Uuid
+  tenantId          String                @db.Uuid
+  departmentId      String?               @db.Uuid
+  createdById       String?               @db.Uuid
+  name              String
+  description       String?
+  systemPrompt      String                @db.Text
+  status            AgentStatus           @default(DRAFT)
+  temperature       Decimal               @default(0.2) @db.Decimal(3, 2)
+  maxTokens         Int                   @default(4000)
+  advancedReasoning Boolean               @default(false)
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department        Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy         User?                 @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  models            AgentModel[]
+  knowledgeBases    AgentKnowledgeBase[]
+  tools             AgentTool[]
+  conversations     Conversation[]
+  automations       Automation[]
+  executions        AutomationExecution[]
+  usage             AiUsage[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([tenantId, status])
+  @@map("agents")
+}
+
+model AiProvider {
+  id     String    @id @default(uuid()) @db.Uuid
+  name   String
+  slug   String    @unique
+  config Json?
+  models AiModel[]
+
+  @@map("ai_providers")
+}
+
+model AiModel {
+  id          String       @id @default(uuid()) @db.Uuid
+  providerId  String       @db.Uuid
+  name        String
+  slug        String
+  inputPrice  Decimal?     @db.Decimal(10, 6)
+  outputPrice Decimal?     @db.Decimal(10, 6)
+  provider    AiProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  agents      AgentModel[]
+  usage       AiUsage[]
+
+  @@unique([providerId, slug])
+  @@map("ai_models")
+}
+
+model AgentModel {
+  agentId   String  @db.Uuid
+  modelId   String  @db.Uuid
+  isPrimary Boolean @default(false)
+  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  model     AiModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, modelId])
+  @@map("agent_models")
+}
+
+model KnowledgeBase {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  name        String
+  description String?
+  status      String               @default("ACTIVE")
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents   Document[]
+  agents      AgentKnowledgeBase[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@map("knowledge_bases")
+}
+
+model AgentKnowledgeBase {
+  agentId         String        @db.Uuid
+  knowledgeBaseId String        @db.Uuid
+  agent           Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, knowledgeBaseId])
+  @@map("agent_knowledge_bases")
+}
+
+model Document {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  knowledgeBaseId String?         @db.Uuid
+  name            String
+  mimeType        String
+  storageKey      String
+  sizeBytes       BigInt
+  status          DocumentStatus  @default(UPLOADED)
+  errorMessage    String?
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase?  @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  chunks          DocumentChunk[]
+  createdAt       DateTime        @default(now())
+  processedAt     DateTime?
+
+  @@index([tenantId, status])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String                       @id @default(uuid()) @db.Uuid
+  documentId String                       @db.Uuid
+  chunkIndex Int
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1536)")?
+  metadata   Json?
+  document   Document                     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@map("document_chunks")
+}
+
+model Tool {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  name           String
+  description    String?
+  type           ToolType
+  status         ToolStatus       @default(ACTIVE)
+  config         Json
+  allowedDomains String[]
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credentials    ToolCredential[]
+  agents         AgentTool[]
+
+  @@index([tenantId, type, status])
+  @@map("tools")
+}
+
+model ToolCredential {
+  id        String @id @default(uuid()) @db.Uuid
+  toolId    String @db.Uuid
+  label     String
+  secretRef String
+  tool      Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_credentials")
+}
+
+model AgentTool {
+  agentId            String  @db.Uuid
+  toolId             String  @db.Uuid
+  enabled            Boolean @default(true)
+  rateLimitPerMinute Int?
+  agent              Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tool               Tool    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, toolId])
+  @@map("agent_tools")
+}
+
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  userId    String    @db.Uuid
+  agentId   String    @db.Uuid
+  title     String?
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  role           String
+  content        String       @db.Text
+  inputTokens    Int?
+  outputTokens   Int?
+  latencyMs      Int?
+  metadata       Json?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("messages")
+}
+
+model Automation {
+  id             String                @id @default(uuid()) @db.Uuid
+  tenantId       String                @db.Uuid
+  agentId        String                @db.Uuid
+  name           String
+  description    String?
+  status         AutomationStatus      @default(DRAFT)
+  timeoutSeconds Int                   @default(300)
+  retries        Int                   @default(2)
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent          Agent                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  steps          AutomationStep[]
+  triggers       AutomationTrigger[]
+  schedules      Schedule[]
+  executions     AutomationExecution[]
+
+  @@index([tenantId, status])
+  @@map("automations")
+}
+
+model AutomationStep {
+  id            String     @id @default(uuid()) @db.Uuid
+  automationId  String     @db.Uuid
+  order         Int
+  name          String
+  actionType    String
+  configuration Json
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, order])
+  @@map("automation_steps")
+}
+
+model AutomationTrigger {
+  id            String      @id @default(uuid()) @db.Uuid
+  automationId  String      @db.Uuid
+  type          TriggerType
+  configuration Json
+  automation    Automation  @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("automation_triggers")
+}
+
+model Schedule {
+  id             String                @id @default(uuid()) @db.Uuid
+  automationId   String                @db.Uuid
+  name           String
+  cronExpression String
+  timezone       String                @default("America/Cuiaba")
+  enabled        Boolean               @default(true)
+  nextRunAt      DateTime?
+  automation     Automation            @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  executions     AutomationExecution[]
+
+  @@map("schedules")
+}
+
+model AutomationExecution {
+  id           String          @id @default(uuid()) @db.Uuid
+  tenantId     String          @db.Uuid
+  automationId String          @db.Uuid
+  agentId      String          @db.Uuid
+  scheduleId   String?         @db.Uuid
+  triggerType  TriggerType
+  status       ExecutionStatus @default(PENDING)
+  input        Json?
+  output       Json?
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  durationMs   Int?
+  dataPurgedAt DateTime?
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  automation   Automation      @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  agent        Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  schedule     Schedule?       @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, finishedAt, dataPurgedAt])
+  @@map("automation_executions")
+}
+
+model Integration {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  name          String
+  type          String
+  status        String    @default("ACTIVE")
+  configuration Json
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  webhooks      Webhook[]
+
+  @@map("integrations")
+}
+
+model Webhook {
+  id            String      @id @default(uuid()) @db.Uuid
+  integrationId String      @db.Uuid
+  url           String
+  secretRef     String?
+  event         String
+  enabled       Boolean     @default(true)
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+model AiUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  userId       String?  @db.Uuid
+  agentId      String?  @db.Uuid
+  automationId String?  @db.Uuid
+  modelId      String?  @db.Uuid
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  cost         Decimal  @default(0) @db.Decimal(12, 6)
+  latencyMs    Int?
+  status       String   @default("COMPLETED")
+  usageMeasured Boolean @default(true)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agent        Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  model        AiModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("ai_usage")
+}
+
+model AiTokenReservation {
+  id             String @id @default(uuid()) @db.Uuid
+  runId          String @db.Uuid
+  tenantId       String @db.Uuid
+  reservedTokens BigInt
+  status         String @default("RESERVED")
+  createdAt      DateTime @default(now())
+  finishedAt     DateTime?
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt, status])
+  @@index([runId])
+  @@map("ai_token_reservations")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  userId     String?  @db.Uuid
+  event      String
+  resource   String?
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, event, createdAt])
+  @@map("audit_logs")
+}

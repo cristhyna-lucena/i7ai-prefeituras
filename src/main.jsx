@@ -1,0 +1,10 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '@sgdm/design/tokens.css';
+import '@sgdm/design/print.css';
+import { ToastProvider } from '@sgdm/design';
+import './styles.css';
+import './sgdm-theme.css';
+import './features.css';
+import { App } from './app-shell';
+createRoot(document.getElementById('root')).render(<ToastProvider><App/></ToastProvider>);

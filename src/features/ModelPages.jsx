@@ -1,0 +1,120 @@
+import { Alert, Button, Card, Input, Select } from "@sgdm/design";
+import { useState } from 'react';
+import { Pencil, Save } from 'lucide-react';
+import { apiRequest } from '../api/client';
+import { useApi } from '../hooks/useApi';
+import { usePermission } from '../api/permissions';
+import { Modal, PageActions, State, Table } from '../components/Common';
+const price = value => value == null ? 'Não configurado' : Number(value).toLocaleString('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6
+});
+export function ModelPage({
+  token,
+  notify = () => {},
+  canWrite = false
+}) {
+  const hasModelWrite = usePermission('models', 'write'),
+    canEdit = canWrite && hasModelWrite;
+  const models = useApi('/models', token),
+    providers = useApi('/providers', token);
+  const [editor, setEditor] = useState(null);
+  const availableProviders = providers.data.filter(provider => provider.capabilities?.supported);
+  const refresh = () => {
+    models.reload();
+    providers.reload();
+  };
+  return <>
+    {canEdit && <PageActions label="Novo modelo" onCreate={!providers.loading && !providers.error && availableProviders.length ? () => setEditor({}) : undefined} />}
+    <p className="panel-note">Este catálogo é compartilhado pelas organizações da plataforma. Preços em USD por milhão de tokens; os valores cadastrados serão usados nos próximos registros de consumo.</p>
+    <State loading={providers.loading} error={providers.error} retry={providers.reload}>
+      <div><Card title={<>Provedores disponíveis</>} description={<>A integração e as credenciais são configuradas pelo administrador no servidor.</>}>
+        {providers.data.length ? <Table headers={['Provedor', 'Integração', 'Disponibilidade']} rows={providers.data.map(provider => [<b>{provider.name}</b>, provider.capabilities?.gatewayIntegration ? 'Gateway de IA' : provider.capabilities?.directIntegration ? 'Integração direta' : 'Gateway necessário', !provider.capabilities?.supported ? 'Configure um gateway para usar este provedor' : provider.capabilities?.integrationConfigured ? 'Acesso configurado no servidor' : 'Configuração de acesso pendente'])} /> : <p className="panel-note">Nenhum provedor cadastrado na plataforma.</p>}
+      </Card></div>
+    </State>
+    <State loading={models.loading} error={models.error} retry={models.reload} empty={!models.data.length && 'Nenhum modelo cadastrado. Configure um modelo para selecionar nos agentes.'}>
+      <div><Card><Table headers={['Modelo', 'Provedor', 'Identificador', 'Entrada · USD / milhão', 'Saída · USD / milhão', 'Agentes', ...(canEdit ? ['Ações'] : [])]} rows={models.data.map(model => [<b>{model.name}</b>, model.provider?.name || '—', model.slug, price(model.inputPrice), price(model.outputPrice), model._count?.agents || 0, ...(canEdit ? [<Button type="button" disabled={providers.loading || Boolean(providers.error)} onClick={() => setEditor(model)} variant="link" icon={<Pencil size={14} />}>Configurar</Button>] : [])])} /></Card></div>
+    </State>
+    {canEdit && editor && <ModelEditor token={token} model={editor} providers={providers.data} onClose={() => setEditor(null)} onSaved={() => {
+      setEditor(null);
+      refresh();
+      notify('Modelo salvo.');
+    }} />} 
+  </>;
+}
+function ModelEditor({
+  token,
+  model,
+  providers,
+  onClose,
+  onSaved
+}) {
+  const canWrite = usePermission('models', 'write');
+  const [form, setForm] = useState({
+    name: model.name || '',
+    slug: model.slug || '',
+    providerId: model.providerId || providers.find(provider => provider.capabilities?.supported)?.id || '',
+    inputPrice: model.inputPrice == null ? '' : String(model.inputPrice),
+    outputPrice: model.outputPrice == null ? '' : String(model.outputPrice)
+  });
+  const [saving, setSaving] = useState(false),
+    [error, setError] = useState('');
+  const selectedProvider = providers.find(provider => provider.id === form.providerId);
+  const set = (key, value) => setForm(current => ({
+    ...current,
+    [key]: value
+  }));
+  async function save(event) {
+    event.preventDefault();
+    if (!canWrite) return;
+    setError('');
+    if (!form.name.trim() || !form.slug.trim()) {
+      setError('Informe nome e identificador do modelo.');
+      return;
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(form.slug.trim())) {
+      setError('O identificador deve usar letras, números, ponto, hífen, sublinhado, barra ou dois-pontos.');
+      return;
+    }
+    if (!selectedProvider?.capabilities?.supported) {
+      setError('Selecione um provedor com integração disponível.');
+      return;
+    }
+    const inputPrice = form.inputPrice === '' ? null : Number(form.inputPrice),
+      outputPrice = form.outputPrice === '' ? null : Number(form.outputPrice);
+    if ([inputPrice, outputPrice].some(value => value !== null && (!Number.isFinite(value) || value < 0 || value > 9999.999999))) {
+      setError('Informe preços válidos entre 0 e 9999.999999 USD por milhão de tokens.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiRequest('/models' + (model.id ? '/' + model.id : ''), {
+        token,
+        method: model.id ? 'PATCH' : 'POST',
+        body: {
+          name: form.name.trim(),
+          slug: form.slug.trim(),
+          providerId: form.providerId,
+          inputPrice,
+          outputPrice
+        }
+      });
+      onSaved();
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return <Modal title={model.id ? 'Configurar modelo' : 'Novo modelo'} onClose={onClose}>
+    <form onSubmit={save}><div className="form">
+      {error && <Alert tone="danger">{error}</Alert>}
+      <Input required maxLength={160} value={form.name} onChange={event => set('name', event.target.value)} label={<>Nome de exibição</>} />
+      <Select required value={form.providerId} onChange={event => set('providerId', event.target.value)} label={<>Provedor</>}><option value="">Selecione um provedor</option>{providers.map(provider => <option key={provider.id} value={provider.id} disabled={!provider.capabilities?.supported}>{provider.name}{!provider.capabilities?.supported ? ' · gateway pendente' : ''}</option>)}</Select>
+      <Input required maxLength={200} value={form.slug} onChange={event => set('slug', event.target.value)} placeholder="Identificador exato fornecido pelo provedor" label={<>Identificador no provedor</>} />
+      <div className="form-grid"><Input type="number" min="0" max="9999.999999" step="0.000001" value={form.inputPrice} onChange={event => set('inputPrice', event.target.value)} placeholder="Não configurado" label={<>Entrada · USD por milhão</>} /><Input type="number" min="0" max="9999.999999" step="0.000001" value={form.outputPrice} onChange={event => set('outputPrice', event.target.value)} placeholder="Não configurado" label={<>Saída · USD por milhão</>} /></div>
+      <p>Deixe um preço vazio para remover sua configuração. Os custos já registrados permanecem no histórico.</p>
+      {selectedProvider && <p>{selectedProvider.capabilities?.integrationConfigured ? 'O acesso a este provedor está configurado no servidor.' : 'Cadastre o modelo e solicite ao administrador a configuração de acesso antes de conversar com o agente.'}</p>}
+    </div><div className="modal-actions"><Button type="button" onClick={onClose} variant="secondary">Cancelar</Button><Button disabled={!canWrite || saving || !selectedProvider?.capabilities?.supported} variant="primary" icon={<Save size={15} />} type="submit">{saving ? 'Salvando...' : 'Salvar modelo'}</Button></div></form>
+  </Modal>;
+}

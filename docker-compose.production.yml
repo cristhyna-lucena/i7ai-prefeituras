@@ -1,0 +1,178 @@
+name: i7ai-production
+
+x-backend-image: &backend-image
+  image: i7ai-backend:${I7AI_IMAGE_TAG:-local}
+  build:
+    context: ./backend
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
+    command: [sh, -ec, 'exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"']
+    volumes:
+      - redis_data:/data
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    # Community legacy images are no longer maintained; use approved pinned images.
+    image: ${MINIO_IMAGE:?Set an approved pinned MinIO server image tag or digest}
+    restart: unless-stopped
+    command: [server, /data, --console-address, ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set a strong MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks: [data]
+
+  bucket-init:
+    image: ${MINIO_MC_IMAGE:?Set an approved pinned MinIO mc client image with sh}
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY:?Set a separate application access key}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY:?Set a separate application secret key}
+      S3_BUCKET: ${S3_BUCKET:-i7ai-documents}
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        case "$${S3_BUCKET}" in ''|*[!a-z0-9.-]*) echo 'Invalid S3_BUCKET' >&2; exit 1;; esac
+        test "$${#S3_BUCKET}" -ge 3 && test "$${#S3_BUCKET}" -le 63
+        test "$${MINIO_APP_ACCESS_KEY}" != "$${MINIO_ROOT_USER}"
+        ready=0
+        for attempt in $$(seq 1 60); do
+          if mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null 2>&1 && mc ready local >/dev/null 2>&1; then ready=1; break; fi
+          sleep 2
+        done
+        test "$$ready" -eq 1 || { echo 'Object storage did not become ready' >&2; exit 1; }
+        mc mb --ignore-existing "local/$${S3_BUCKET}"
+        mc anonymous set none "local/$${S3_BUCKET}"
+        cat > /tmp/bucket-policy.json <<EOF
+        {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket","s3:ListBucketMultipartUploads"],"Resource":["arn:aws:s3:::$${S3_BUCKET}"]},{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:AbortMultipartUpload","s3:ListMultipartUploadParts"],"Resource":["arn:aws:s3:::$${S3_BUCKET}/*"]}]}
+        EOF
+        mc admin policy create local i7ai-application /tmp/bucket-policy.json
+        mc admin user add local "$${MINIO_APP_ACCESS_KEY}" "$${MINIO_APP_SECRET_KEY}"
+        mc admin policy attach local i7ai-application --user "$${MINIO_APP_ACCESS_KEY}"
+    networks: [data]
+
+  migrate:
+    <<: *backend-image
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set PostgreSQL URL using the postgres service host and encoded credentials}
+    command: [node, node_modules/prisma/build/index.js, migrate, deploy]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    security_opt: [no-new-privileges:true]
+
+  backend:
+    <<: *backend-image
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: ${DATABASE_URL:?Set PostgreSQL URL using the postgres service host and encoded credentials}
+      REDIS_URL: ${REDIS_URL:?Set Redis URL using redis service host and encoded password}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY:?Set MINIO_APP_ACCESS_KEY}
+      S3_SECRET_KEY: ${MINIO_APP_SECRET_KEY:?Set MINIO_APP_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-i7ai-documents}
+      JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET with at least32 characters}
+      SGDM_JWT_SECRET: ${SGDM_JWT_SECRET:-}
+      SGDM_JWT_ISSUER: ${SGDM_JWT_ISSUER:-}
+      SGDM_JWT_AUDIENCE: ${SGDM_JWT_AUDIENCE:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set actual frontend origins separated by commas}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      AI_GATEWAY_URL: ${AI_GATEWAY_URL:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bucket-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    networks: [app, data]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health',{signal:AbortSignal.timeout(8000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: i7ai-frontend:${I7AI_IMAGE_TAG:-local}
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8080:8080'
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [app]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  # Frontend proxy and backend share this bridge; backend can reach providers.
+  app:
+    driver: bridge
+  # Database, queue, storage, migrations and provisioning have no external route.
+  data:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

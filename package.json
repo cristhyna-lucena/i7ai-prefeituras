@@ -1,0 +1,33 @@
+{
+  "name": "i7ai-prefeituras",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/event-stream.test.mjs",
+    "audit:design": "node scripts/audit-sgdm.cjs",
+    "test:visual": "playwright test"
+  },
+  "dependencies": {
+    "@sgdm/design": "github:JEFERSON-ASSIS/sgdm-design#v0.2.1",
+    "@vitejs/plugin-react": "6.1.1",
+    "lucide-react": "1.48.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  },
+  "devDependencies": {
+    "@babel/generator": "^7.29.8",
+    "@babel/parser": "^7.29.9",
+    "@babel/traverse": "^7.29.8",
+    "@babel/types": "^7.29.8",
+    "@playwright/test": "^1.56.1",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.19"
+  }
+}

@@ -1,0 +1,54 @@
+{
+    "name": "i7ai-backend",
+    "private": true,
+    "version": "0.1.0",
+    "scripts": {
+        "dev": "nest start --watch",
+        "build": "nest build",
+        "prisma:generate": "prisma generate",
+        "prisma:format": "prisma format",
+        "prisma:migrate": "prisma migrate dev",
+        "prisma:studio": "prisma studio",
+        "test": "node scripts/test.cjs",
+        "test:integration": "node scripts/verify-integration.cjs",
+        "start:prod": "node dist/main.js",
+        "prisma:deploy": "prisma migrate deploy",
+        "prisma:seed": "node scripts/seed.cjs",
+        "provision": "node scripts/provision.cjs"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "3.1142.0",
+        "@nestjs/common": "11.2.7",
+        "@nestjs/core": "11.2.7",
+        "@nestjs/jwt": "11.0.0",
+        "@nestjs/platform-express": "11.2.7",
+        "@prisma/client": "6.16.2",
+        "@tesseract.js-data/por": "1.0.0",
+        "ajv": "8.20.0",
+        "bcryptjs": "3.0.2",
+        "bullmq": "5.81.5",
+        "class-transformer": "0.5.1",
+        "class-validator": "0.14.1",
+        "cron-parser": "4.9.0",
+        "exceljs": "4.4.0",
+        "ioredis": "5.11.1",
+        "mammoth": "1.11.0",
+        "openai": "7.25.0",
+        "pdf-parse": "2.4.5",
+        "prisma": "6.16.2",
+        "reflect-metadata": "0.2.2",
+        "rxjs": "7.8.2",
+        "tesseract.js": "7.0.0"
+    },
+    "overrides": {
+        "@prisma/config": { "deepmerge-ts": "8.0.2", "effect": "3.20.0" },
+        "exceljs": { "uuid": "11.1.1" }
+    },
+    "devDependencies": {
+        "@nestjs/cli": "11.0.8",
+        "@nestjs/schematics": "11.0.6",
+        "@nestjs/testing": "11.0.11",
+        "@types/node": "22.15.0",
+        "typescript": "5.7.3"
+    }
+}

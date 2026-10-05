@@ -1,0 +1,20 @@
+# Exclude installed Windows binaries, local secrets, tests and previous builds.
+*
+!Dockerfile
+!package.json
+!package-lock.json
+!nest-cli.json
+!tsconfig*.json
+!src/
+!src/**
+!prisma/
+!prisma/**
+!scripts/
+!scripts/**
+**/.env*
+**/*.pem
+**/*.key
+**/*.pfx
+**/node_modules
+**/.git
+**/*.tsbuildinfo

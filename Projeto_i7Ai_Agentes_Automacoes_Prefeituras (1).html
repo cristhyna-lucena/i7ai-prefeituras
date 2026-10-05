@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projeto i7Ai - Plataforma de IA para Prefeituras</title>
+<style>
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;color:#1f2937;line-height:1.6}
+header{background:#10264d;color:#fff;padding:40px 6%}
+header h1{margin:0 0 8px;font-size:32px}
+main{width:min(1150px,92%);margin:30px auto;background:#fff;padding:42px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+h2{color:#173a70;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-top:36px}
+h3{color:#31578b;margin-top:24px}
+ul,ol{padding-left:24px}
+pre{background:#111827;color:#f9fafb;padding:16px;border-radius:10px;overflow:auto;white-space:pre-wrap}
+.note{background:#eef6ff;border-left:4px solid #2563eb;padding:14px;margin:16px 0}
+.warn{background:#fff7ed;border-left:4px solid #f97316;padding:14px;margin:16px 0}
+</style>
+</head>
+<body>
+<header>
+<h1>Projeto Plataforma i7Ai de Inteligência Artificial para Prefeituras</h1>
+<p>Especificação funcional e técnica revisada com agentes, documentos, ferramentas, integrações, automações, cron, execuções e governança.</p>
+</header>
+<main>
+
+<h2>1. Objetivo da Plataforma</h2>
+<p>Desenvolver uma plataforma SaaS completa de Inteligência Artificial, Agentes de IA, Conhecimento, Ferramentas e Automação, voltada inicialmente para prefeituras e órgãos públicos.</p>
+<p>A plataforma terá como referência conceitual soluções como Tess AI, porém deverá possuir arquitetura, código, identidade visual e experiência próprias.</p>
+<p>O objetivo é permitir que usuários autorizados possam criar e operar agentes inteligentes, carregar documentos, usar bases de conhecimento, integrar APIs, criar automações e configurar tarefas recorrentes.</p>
+
+<div class="note"><strong>Princípio central:</strong> a aplicação não deve ser apenas um chatbot. Deve funcionar como uma plataforma de construção, configuração, execução e monitoramento de agentes de IA.</div>
+
+<h2>2. Conceito Central do Agente</h2>
+<pre>AGENTE DE IA
+│
+├── Identidade
+├── Modelo
+├── Prompt / Instruções
+├── Memória
+├── Base de Conhecimento
+├── Arquivos
+├── Ferramentas
+│   ├── HTTP Request
+│   ├── API REST
+│   ├── Webhook
+│   ├── n8n
+│   ├── Busca externa
+│   └── Ferramentas internas
+├── Automações
+├── Agendamentos / CRON
+├── Permissões
+├── Limites
+└── Histórico de Execuções</pre>
+
+<h2>3. Stack Técnica</h2>
+<h3>Frontend</h3>
+<ul><li>React</li><li>TypeScript</li><li>Vite</li><li>Tailwind CSS</li><li>shadcn/ui</li><li>TanStack Query</li><li>Zustand</li><li>React Router</li></ul>
+<h3>Backend</h3>
+<ul><li>Node.js</li><li>TypeScript</li><li>NestJS</li><li>REST API</li><li>Swagger / OpenAPI</li><li>WebSocket ou SSE</li></ul>
+<h3>Dados e infraestrutura</h3>
+<ul><li>PostgreSQL</li><li>Prisma ORM</li><li>pgvector</li><li>Redis</li><li>BullMQ</li><li>MinIO</li><li>Docker</li><li>Docker Swarm</li><li>Traefik</li><li>Prometheus</li><li>Grafana</li><li>Loki</li></ul>
+
+<h2>4. Multi-Tenancy</h2>
+<p>Cada prefeitura ou órgão público será um Tenant.</p>
+<ul><li>Usuários</li><li>Departamentos</li><li>Agentes</li><li>Documentos</li><li>Bases de conhecimento</li><li>Ferramentas</li><li>Integrações</li><li>Automações</li><li>Agendamentos</li><li>Consumo</li><li>Auditoria</li></ul>
+<div class="warn">Nunca confiar em tenant_id enviado pelo frontend. O tenant deve ser determinado pela autenticação do usuário ou API Key.</div>
+
+<h2>5. Perfis e Permissões</h2>
+<ul><li>SUPER ADMIN</li><li>ADMIN DO TENANT</li><li>GESTOR</li><li>CONSTRUTOR DE AGENTES</li><li>USUÁRIO</li><li>VISUALIZADOR</li></ul>
+<p>O Construtor de Agentes poderá criar e editar agentes, configurar prompts, modelos, documentos, ferramentas, integrações, automações, agendamentos e testes.</p>
+
+<h2>6. Experiência do Usuário</h2>
+<pre>Dashboard
+
+IA
+├── Novo Chat
+├── Conversas
+├── Agentes
+├── Modelos
+└── Execuções
+
+Conhecimento
+├── Bases de Conhecimento
+├── Documentos
+└── Arquivos
+
+Automação
+├── Automações
+├── Agendamentos
+├── Execuções
+└── Logs
+
+Ferramentas
+├── Ferramentas
+├── APIs
+├── Webhooks
+└── Integrações
+
+Organização
+├── Departamentos
+├── Usuários
+└── Permissões
+
+Relatórios
+├── Uso
+├── Tokens
+├── Custos
+└── Auditoria
+
+Configurações</pre>
+
+<h2>7. Criação de Agentes</h2>
+<p>A criação deverá ocorrer por um Wizard em etapas:</p>
+<ol>
+<li>Identidade</li><li>Instruções</li><li>Modelo</li><li>Conhecimento</li><li>Arquivos</li><li>Ferramentas</li><li>Integrações</li><li>Automação</li><li>Agendamentos</li><li>Permissões</li><li>Limites</li><li>Teste</li><li>Publicação</li>
+</ol>
+
+<h2>8. Documentos e Arquivos</h2>
+<p>Dentro do agente deverá existir um botão claro de <strong>+ Carregar Documento</strong>.</p>
+<p>O usuário deverá poder clicar, arrastar arquivos, selecionar múltiplos documentos e acompanhar o processamento.</p>
+<h3>Formatos previstos</h3>
+<ul><li>PDF</li><li>DOC / DOCX</li><li>XLS / XLSX</li><li>CSV</li><li>TXT</li><li>MD</li><li>JSON</li><li>XML</li><li>HTML / HTM</li><li>PPT / PPTX</li><li>PNG</li><li>JPG / JPEG</li><li>WEBP</li><li>ZIP</li></ul>
+
+<h3>Pipeline de processamento</h3>
+<pre>Upload
+↓
+MinIO
+↓
+Validação
+↓
+Identificação MIME
+↓
+Extração / Conversão
+↓
+Normalização
+↓
+Chunking
+↓
+Embeddings
+↓
+pgvector
+↓
+Indexação
+↓
+Disponível para o Agente</pre>
+
+<h2>9. Base de Conhecimento e Memória</h2>
+<p>Separar três conceitos:</p>
+<ul><li>Memória de conversa</li><li>Conhecimento permanente</li><li>Configurações permanentes do agente</li></ul>
+<p>Um agente poderá se relacionar com várias bases de conhecimento e uma mesma base poderá ser usada por vários agentes.</p>
+
+<h2>10. Ferramentas do Agente</h2>
+<p>O módulo de ferramentas será central na plataforma.</p>
+<ul><li>HTTP Request</li><li>Webhook</li><li>API REST</li><li>n8n</li><li>Pesquisa externa</li><li>Ferramenta interna</li><li>Consulta a banco autorizado</li></ul>
+
+<h3>HTTP Request</h3>
+<p>Configurar nome, método, URL, headers, query parameters, body, autenticação e timeout.</p>
+<p>Autenticações previstas: Bearer Token, API Key, Basic Auth e OAuth futuramente.</p>
+
+<h2>11. Acesso a Sites e Serviços Externos</h2>
+<p>O agente poderá utilizar ferramentas autorizadas para acessar informações externas, sempre respeitando políticas de segurança.</p>
+<ul><li>Domínios permitidos</li><li>Domínios bloqueados</li><li>Timeout</li><li>Limite de requisição</li><li>Credenciais</li><li>Métodos permitidos</li></ul>
+
+<h2>12. Integração com n8n</h2>
+<pre>Agente
+↓
+Webhook n8n
+↓
+Workflow
+↓
+Sistemas externos
+↓
+Resultado
+↓
+Agente</pre>
+<p>Permitir URL, autenticação, parâmetros, payload, timeout e resposta esperada.</p>
+
+<h2>13. Automações</h2>
+<p>Criar um módulo específico de automações. Uma automação poderá executar um agente sem que o usuário precise iniciar uma conversa manualmente.</p>
+<p>Campos:</p>
+<ul><li>Nome</li><li>Descrição</li><li>Agente</li><li>Gatilho</li><li>Ações</li><li>Ferramentas</li><li>Agendamento</li><li>Timeout</li><li>Tentativas</li><li>Status</li></ul>
+
+<h3>Construtor inicial</h3>
+<pre>QUANDO
+Todos os dias às 08:00
+
+FAÇA
+Executar Agente de Licitações
+
+DEPOIS
+Consultar API
+
+DEPOIS
+Gerar resumo
+
+DEPOIS
+Salvar resultado
+
+DEPOIS
+Enviar webhook</pre>
+
+<h2>14. Tipos de Gatilho</h2>
+<ul><li>Manual</li><li>Agendamento</li><li>Cron</li><li>Webhook</li><li>Evento interno</li><li>API</li><li>Arquivo recebido</li><li>E-mail futuramente</li><li>Mensagem futuramente</li></ul>
+
+<h2>15. Agendamentos e CRON</h2>
+<p>O usuário deverá conseguir criar um agendamento sem conhecer expressão cron.</p>
+<ul><li>Uma vez</li><li>Todos os dias</li><li>Toda semana</li><li>Todo mês</li><li>Personalizado</li></ul>
+<p>Também deverá existir modo avançado para informar a expressão cron diretamente.</p>
+<p>O sistema deverá traduzir a expressão para linguagem natural.</p>
+
+<h3>Fluxo de execução</h3>
+<pre>Cron
+↓
+Scheduler
+↓
+BullMQ
+↓
+Worker
+↓
+Agente
+↓
+Ferramentas
+↓
+AI Gateway
+↓
+Resultado</pre>
+<p>A execução não poderá depender do navegador estar aberto.</p>
+
+<h2>16. Histórico de Execuções</h2>
+<pre>id
+tenant_id
+automation_id
+agent_id
+trigger_type
+status
+started_at
+finished_at
+duration_ms
+input
+output
+error
+created_at</pre>
+<p>Status: PENDING, RUNNING, SUCCESS, FAILED, CANCELLED.</p>
+
+<h2>17. Chat do Agente</h2>
+<p>A interface deve possuir sidebar, histórico, agentes, favoritos, anexos e resposta em streaming.</p>
+<p>Arquivos anexados ao chat poderão ser temporários ou permanentes, conforme permissão.</p>
+
+<h2>18. Tela Interna do Agente</h2>
+<pre>Visão Geral
+Instruções
+Modelo
+Conhecimento
+Arquivos
+Ferramentas
+Automações
+Agendamentos
+Permissões
+Execuções
+Configurações</pre>
+
+<h2>19. Protótipos Funcionais Esperados</h2>
+
+<h3>Tela de Conhecimento</h3>
+<pre>Assistente Jurídico
+
+Bases conectadas:
+- Legislação Municipal
+- Licitações
+
+Documentos:
+Lei 14.133.pdf          PDF      Pronto
+Manual Compras.docx     Word     Pronto
+Planilha Valores.xlsx   Excel    Pronto
+
+[ + Carregar Documento ]</pre>
+
+<h3>Tela de Ferramentas</h3>
+<pre>HTTP
+Consultar Portal da Transparência
+Ativo
+
+Webhook
+Enviar para n8n
+Ativo
+
+API
+Consultar processo
+Ativo
+
+[ + Adicionar Ferramenta ]</pre>
+
+<h3>Tela de Automação</h3>
+<pre>Nova Automação
+
+Nome
+Monitoramento Diário
+
+Agente
+Assistente de Licitações
+
+Gatilho
+Agendamento
+
+Periodicidade
+Todos os dias
+
+Horário
+08:00
+
+Ações:
+1. Consultar portal
+2. Obter informações
+3. Analisar com IA
+4. Gerar relatório
+5. Salvar resultado
+
+[ Testar automação ]
+[ Salvar ]</pre>
+
+<h3>Tela de Agendamentos</h3>
+<pre>Nome                    Frequência       Próxima execução
+Licitações diárias      Diário 08:00     Amanhã 08:00
+Resumo jurídico         Seg 09:00        Segunda 09:00
+Relatório mensal        Dia 01 07:00     01/10 07:00
+
+[ + Novo Agendamento ]</pre>
+
+<h2>20. Segurança das Ferramentas</h2>
+<p>Cada agente deverá possuir uma lista explícita de ferramentas permitidas.</p>
+<div class="warn">Nenhum agente poderá executar uma ferramenta arbitrária ou não autorizada.</div>
+
+<h2>21. Licenciamento</h2>
+<pre>id
+tenant_id
+status
+start_date
+end_date
+max_users
+max_agents
+max_automations
+max_storage
+max_tokens
+max_knowledge_bases
+features
+created_at
+updated_at</pre>
+
+<h2>22. Controle de Consumo</h2>
+<p>Registrar tenant, usuário, agente, automação, provedor, modelo, tokens de entrada, tokens de saída, custo, latência e timestamp.</p>
+
+<h2>23. Entidades Principais do Banco</h2>
+<pre>tenants
+licenses
+users
+roles
+permissions
+departments
+
+agents
+agent_models
+agent_permissions
+
+knowledge_bases
+documents
+document_chunks
+agent_knowledge_bases
+
+conversations
+messages
+attachments
+
+ai_providers
+ai_models
+ai_usage
+
+tools
+agent_tools
+tool_credentials
+
+automations
+automation_steps
+automation_triggers
+schedules
+automation_executions
+
+integrations
+webhooks
+
+audit_logs
+notifications
+tenant_settings</pre>
+
+<h2>24. Relacionamentos Essenciais</h2>
+<pre>Tenant 1:N Users
+Tenant 1:N Departments
+Tenant 1:N Agents
+Tenant 1:N KnowledgeBases
+Tenant 1:N Automations
+Tenant 1:N Documents
+
+Department 1:N Users
+Department 1:N Agents
+
+User 1:N Conversations
+User 1:N Agents
+
+Agent N:N KnowledgeBases
+Agent N:N Tools
+
+Agent 1:N Conversations
+Agent 1:N Automations
+
+Conversation 1:N Messages
+
+KnowledgeBase 1:N Documents
+
+Document 1:N DocumentChunks
+
+Automation 1:N AutomationSteps
+Automation 1:N Executions
+
+Schedule 1:N Executions
+
+AIProvider 1:N AIModels</pre>
+
+<h2>25. Redis, BullMQ e Scheduler</h2>
+<p>Redis será usado para cache, rate limiting, filas, locks, scheduler e eventos temporários.</p>
+<p>Filas previstas:</p>
+<pre>ai.execute
+agent.execute
+automation.execute
+document.process
+document.embed
+document.index
+webhook.execute
+integration.execute
+report.generate
+notification.send</pre>
+
+<h2>26. Docker Swarm</h2>
+<pre>frontend
+api
+worker-ai
+worker-automation
+worker-documents
+scheduler
+postgres
+redis
+minio
+traefik
+prometheus
+grafana
+loki</pre>
+
+<h2>27. Auditoria</h2>
+<pre>AGENT_CREATED
+AGENT_UPDATED
+TOOL_CREATED
+TOOL_EXECUTED
+AUTOMATION_CREATED
+AUTOMATION_EXECUTED
+DOCUMENT_UPLOADED
+SCHEDULE_CREATED
+USER_CREATED
+PERMISSION_CHANGED</pre>
+
+<h2>28. MVP</h2>
+<ol>
+<li>Criar tenant</li>
+<li>Criar usuário</li>
+<li>Criar departamento</li>
+<li>Criar agente</li>
+<li>Escolher modelo</li>
+<li>Criar prompt</li>
+<li>Enviar documentos</li>
+<li>Processar documento</li>
+<li>Criar base de conhecimento</li>
+<li>Associar base ao agente</li>
+<li>Conversar com agente</li>
+<li>Adicionar ferramenta HTTP</li>
+<li>Executar ferramenta pelo agente</li>
+<li>Criar automação</li>
+<li>Criar agendamento</li>
+<li>Executar agente automaticamente</li>
+<li>Registrar execução</li>
+<li>Registrar tokens</li>
+<li>Registrar custos</li>
+<li>Registrar auditoria</li>
+</ol>
+
+<h2>29. Regra de Prototipação</h2>
+<p>Antes da implementação completa, prototipar:</p>
+<ol>
+<li>Login</li><li>Dashboard</li><li>Lista de agentes</li><li>Criar agente</li><li>Editor de instruções</li><li>Seleção de modelo</li><li>Conhecimento</li><li>Upload de documentos</li><li>Ferramentas</li><li>Cadastro de HTTP Request</li><li>Integrações</li><li>Automações</li><li>Criar automação</li><li>Agendamentos</li><li>Criar agendamento</li><li>Histórico de execuções</li><li>Chat</li><li>Usuários</li><li>Departamentos</li><li>Licenciamento</li>
+</ol>
+
+<h2>30. Resultado Esperado Antes da Implementação Completa</h2>
+<ul>
+<li>Arquitetura técnica</li>
+<li>Schema completo do banco</li>
+<li>Primary Keys</li>
+<li>Foreign Keys</li>
+<li>Cardinalidades</li>
+<li>Diagrama ER</li>
+<li>Estrutura do monorepo</li>
+<li>Fluxo de autenticação</li>
+<li>Fluxo multi-tenant</li>
+<li>Fluxo do AI Gateway</li>
+<li>Fluxo do RAG</li>
+<li>Fluxo das ferramentas</li>
+<li>Fluxo das automações</li>
+<li>Fluxo do scheduler</li>
+<li>Fluxo das execuções</li>
+<li>Protótipos das telas</li>
+</ul>
+
+<div class="note"><strong>Diretriz final:</strong> construir uma plataforma completa de agentes de IA, documentos, conhecimento, ferramentas, integrações, automações, agendamentos, execuções, permissões, auditoria e governança — e não apenas Chat + Modelo + Prompt.</div>
+
+</main>
+</body>
+</html>
