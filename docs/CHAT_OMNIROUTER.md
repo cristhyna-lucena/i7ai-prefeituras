@@ -2,6 +2,8 @@
 
 O [status do projeto](STATUS_PROJETO.md) reúne entregas, verificações e pendências operacionais. Este documento detalha o contrato e os limites do chat.
 
+A [configuração local de 6 de outubro](OMNIROUTE_LOCAL.md) registra a conexão real ao OmniRoute, quatro modelos de GPT/Claude/Gemini, três agentes ativos, texto e visão com GPT verificados pela API, além dos resultados históricos e limites restantes.
+
 ## Análise da estrutura existente
 
 O projeto permanece como módulo React/Vite incorporado ao SGDM, usando o pacote oficial `@sgdm/design`. O SGDM fornece sessão e navegação. O backend NestJS valida o JWT, consulta usuário/prefeitura ativos e aplica as permissões existentes. Não há autenticação nova.
@@ -35,9 +37,11 @@ Capacidades por modelo: visão e ferramentas precisam ser explicitamente habilit
 
 Quando configurado, OmniRouter tem precedência para todas as famílias de modelos. Os adaptadores anteriores foram preservados para ambientes existentes. `AI_GATEWAY_URL` continua sendo um contrato próprio `/chat` e não deve receber uma URL OmniRouter OpenAI-compatible. Embeddings mantêm sua configuração separada.
 
+Consumo: quando `prompt_tokens` e `completion_tokens` estão completos e o gateway informa `total_tokens`, o adaptador preserva esse total e registra como saída `total_tokens - prompt_tokens`. Isso inclui consumo adicional informado somente no total, sem somar detalhes de cache/raciocínio novamente. A ausência de um contador mantém o consumo sem confirmação; totais contraditórios ou inválidos são recusados com reserva conservadora. Os tokens adicionais não recebem uma classificação de raciocínio inferida.
+
 ## Anexos
 
-Documentos: PDF, TXT, CSV, XLSX, DOCX, MD, JSON, XML e HTML, com os extratores existentes. PDF digitalizado mantém OCR local em português. Imagens: PNG, JPG/JPEG e WEBP estático, enviadas como conteúdo multimodal apenas com OmniRouter, visão habilitada e janela de contexto cadastrada no modelo. WEBP animado, XLS, ZIP, áudio e vídeo retornam erro de formato não suportado; não são apresentados como processamento disponível. A análise de imagens aguarda validação com URL, credencial e modelo habilitado na conta real do serviço.
+Documentos: PDF, TXT, CSV, XLSX, DOCX, MD, JSON, XML e HTML, com os extratores existentes. PDF digitalizado mantém OCR local em português. Imagens: PNG, JPG/JPEG e WEBP estático, enviadas como conteúdo multimodal apenas com OmniRouter, visão habilitada e janela de contexto cadastrada no modelo. WEBP animado, XLS, ZIP, áudio e vídeo retornam erro de formato não suportado; não são apresentados como processamento disponível. Visão com GPT-4o Mini foi validada no i7Ai com a conta real. A análise com os demais modelos ainda não foi exercitada; Claude/Gemini esbarram na janela reservada maior que a licença local, conforme [resultados](OMNIROUTE_LOCAL.md).
 
 São aceitos até cinco anexos por turno, até 20 MB por documento e 10 MB por imagem. `CHAT_ATTACHMENT_MAX_BYTES` pode reduzir o limite de documentos. Imagens têm limite de 8192 pixels por lado e 16 milhões de pixels. O backend valida extensão, MIME, conteúdo, nome, tamanho, estrutura Office e decodificação de imagens. Arquivos não são executados nem publicados como URLs públicas.
 
@@ -62,7 +66,7 @@ As rotas de anexos usam `agents:execute`; usuários de chat não precisam recebe
 
 As permissões existentes são definidas por perfil, recurso e prefeitura. Não há ACL individual por agente nem restrição automática pelo departamento do usuário.
 
-Pendência de alinhamento da ativação: o catálogo e a interface permitem conversar somente com agentes `ACTIVE`, mas `AiGatewayService.generate` rejeita apenas `ARCHIVED`. Uma chamada direta autorizada pode executar um agente `DRAFT`. Essa divergência está registrada no [status do projeto](STATUS_PROJETO.md) e permanece sem correção de código nesta atualização documental.
+Desde a correção local de 6 de outubro de 2026, o catálogo, a interface e `AiGatewayService.generate` exigem agentes `ACTIVE`. Chamadas diretas ao chat, streaming e `executeAgent` recusam rascunhos e agentes arquivados antes de consultar bases/ferramentas, reservar tokens, chamar o provedor ou persistir respostas. Rascunhos retornam a orientação para ativar o agente nas configurações. Consulte o [status do projeto](STATUS_PROJETO.md#p06--alinhamento-da-regra-de-agentes-ativos).
 
 ## Verificação
 

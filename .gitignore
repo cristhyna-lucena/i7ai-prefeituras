@@ -13,6 +13,7 @@ deploy/.env.*
 /output/backup/
 /output/preview-server/
 /output/verification/frontend/
+/output/verification/omniroute/
 /test-results/
 /output/verification/sgdm/test-results/
 /playwright-report/

@@ -289,6 +289,69 @@ test('missing consumption remains unmeasured; malformed consumption and incomple
   const third = fixture(); await assert.rejects(third.service.generate(third.input), /contadores/); assert.equal(third.records.usage[0].usageMeasured, false);
 });
 
+for (const streaming of [false, true]) {
+  const format = streaming ? 'SSE' : 'JSON';
+  async function usageProvider(t, samples) {
+    let selected = 0;
+    return provider(t, (_body, response) => {
+      const usage = samples[selected++];
+      return streaming
+        ? sse(response, [frame(chunk({ content: 'Resposta' })), frame(chunk({}, 'stop')), frame({ choices: [], usage }), frame('[DONE]')])
+        : json(response, completion('Resposta', { usage }));
+    });
+  }
+
+  test(`${format} consumption preserves additional tokens in the gateway total without counting details twice`, async t => {
+    const samples = [
+      { prompt_tokens: 92, completion_tokens: 5, total_tokens: 154 },
+      { prompt_tokens: 92, completion_tokens: 62, total_tokens: 154, prompt_tokens_details: { cached_tokens: 40 }, completion_tokens_details: { reasoning_tokens: 57 } },
+      { prompt_tokens: 92, completion_tokens: 5, total_tokens: 97 },
+      { prompt_tokens: 92, completion_tokens: 5 },
+      { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    ];
+    const expected = [[92, 62], [92, 62], [92, 5], [92, 5], [0, 0]];
+    await usageProvider(t, samples);
+    for (const [index, sample] of samples.entries()) {
+      const { service, input, records } = fixture(); if (streaming) input.onDelta = () => {};
+      const result = await service.generate(input);
+      assert.equal(result.inputTokens, expected[index][0]); assert.equal(result.outputTokens, expected[index][1]);
+      assert.equal(result.measured, true); assert.equal(records.usage[0].usageMeasured, true);
+      assert.equal(records.usage[0].inputTokens + records.usage[0].outputTokens, sample.total_tokens ?? 97);
+      assert.equal(records.reservations[0].reservedTokens, 0n);
+    }
+  });
+
+  test(`${format} a gateway total cannot infer a missing prompt or completion counter`, async t => {
+    const samples = [
+      { prompt_tokens: 92, total_tokens: 154 },
+      { completion_tokens: 5, total_tokens: 154 },
+      { prompt_tokens: null, completion_tokens: 5, total_tokens: 154 },
+      { total_tokens: 154 },
+    ];
+    const expected = [[92, 0], [0, 5], [0, 5], [0, 0]];
+    await usageProvider(t, samples);
+    for (const [index] of samples.entries()) {
+      const { service, input, records } = fixture(); if (streaming) input.onDelta = () => {};
+      const result = await service.generate(input);
+      assert.equal(result.inputTokens, expected[index][0]); assert.equal(result.outputTokens, expected[index][1]);
+      assert.equal(result.measured, false); assert.equal(records.usage[0].usageMeasured, false);
+      assert.ok(records.reservations[0].reservedTokens > 0n);
+    }
+  });
+
+  test(`${format} invalid or contradictory gateway totals fail with unknown consumption reserved`, async t => {
+    const samples = [96, null, -1, 97.5, '154', true, 2_147_483_648].map(total_tokens => ({ prompt_tokens: 92, completion_tokens: 5, total_tokens }));
+    await usageProvider(t, samples);
+    for (const _sample of samples) {
+      const { service, input, records } = fixture(); if (streaming) input.onDelta = () => {};
+      await assert.rejects(service.generate(input), error => {
+        assert.equal(error.getStatus(), 502); assert.match(error.message, /contadores/); return true;
+      });
+      assert.equal(records.usage[0].usageMeasured, false); assert.ok(records.reservations[0].reservedTokens > 0n);
+    }
+  });
+}
+
 test('redirects are refused rather than forwarding a server API key', async t => {
   let redirected = 0;
   const target = http.createServer((_request, response) => { redirected++; json(response, completion()); });

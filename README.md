@@ -4,7 +4,9 @@ Frontend React/Vite com o design system oficial `@sgdm/design` e API NestJS. Age
 
 O preset, os tokens e os componentes do SGDM são usados sem sobrescritas visuais locais. Veja a [validação do design system](docs/VALIDACAO_SGDM.md), com escopo, testes e capturas de desktop e celular.
 
-O [estado do projeto e pendências](docs/STATUS_PROJETO.md) reúne todos os pedidos e a situação verificada em 5 de outubro de 2026: GitHub público, acesso de JEFERSON-ASSIS, chat, modelos, OmniRouter, SGDM, implantação e limites. A implementação está validada localmente; configuração de IA real, integração ao SGDM e implantação no destino continuam pendentes.
+O [estado do projeto e pendências](docs/STATUS_PROJETO.md) reúne todos os pedidos e as verificações locais de 5 e 6 de outubro de 2026: GitHub público, acesso de JEFERSON-ASSIS, chat, modelos, OmniRouter, SGDM, implantação e limites. A IA local responde com GPT-4o Mini, GPT 5.6 Luna (Low), Claude e Gemini; visão com GPT-4o Mini também foi verificada. Integração ao SGDM e implantação no destino continuam pendentes.
+
+Atualização local em 6 de outubro: [OmniRoute conectado com GPT, Claude e Gemini](docs/OMNIROUTE_LOCAL.md), com Assistente da Prefeitura e agentes de Licitações e Contratos ativos. Respostas reais, streaming, histórico, consumo e visão com GPT foram verificados pela API. As demais capacidades ainda não exercitadas e a integração operacional continuam pendentes.
 
 ## Desenvolvimento local
 
@@ -33,11 +35,13 @@ O i7Ai funciona como módulo incorporado no SGDM, sem login próprio. O SGDM for
 
 Para revisar o visual sem conectar uma prefeitura, abra `http://localhost:5173/preview/sgdm.html` com o servidor de desenvolvimento ativo. Essa prévia simula o host usando os componentes oficiais e dados fictícios; alterações e chamadas de IA estão desabilitadas. Ela não faz parte do build de produção.
 
+O host de desenvolvimento em `preview/local.jsx` apresenta o site completo com o menu SGDM e as 16 áreas usando a API real, sem a faixa superior adicional. No celular, um seletor oficial permite navegar e um botão permite sair. Ele recebe uma sessão fornecida pelo ambiente local, respeita as permissões retornadas pela API e permite alterações. Só funciona no servidor de desenvolvimento em `localhost` ou `127.0.0.1`; o ponto de entrada de produção continua integrado ao SGDM. Durante a revisão local, o servidor específico de acesso usa `http://127.0.0.1:5173/`, com configuração e sessão temporária em `output/preview-server/`, ignorado pelo Git.
+
 ## Fluxo funcional
 
 1. Cadastre departamentos e confira os modelos disponíveis.
 2. Crie uma base e envie documentos. Aguarde **Processado**; erros de extração aparecem na tabela.
-3. Configure um agente com instruções, modelo principal, bases e ferramentas. Na interface de chat, ative-o antes de conversar; o alinhamento dessa regra nas chamadas diretas à API está registrado nas [pendências](docs/STATUS_PROJETO.md#p06--alinhamento-da-regra-de-agentes-ativos).
+3. Configure um agente com instruções, modelo principal, bases e ferramentas. Ative-o antes de conversar ou executar: a interface e a API exigem agente `ACTIVE`, inclusive em streaming e automações.
 4. Abra o agente no chat. Conversas e fontes são persistidas por usuário e prefeitura. O streaming confirma o salvamento ao concluir; respostas parciais interrompidas não entram no histórico.
 5. Crie uma automação com etapas de agente ou ferramenta HTTP. Execute manualmente ou cadastre cron com fuso horário. Acompanhe estado, resultado, erro e duração em Execuções.
 6. Consulte consumo, auditoria e limites em Relatórios e Licenciamento.

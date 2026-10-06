@@ -40,3 +40,73 @@ test('repeated partial or final counters are idempotent and explicit rejection r
  assert.equal(records.reservations[1].status,'REJECTED');assert.equal(records.reservations[1].reservedTokens,0n);
  await assert.rejects(quota.record(scope,reservation.id,{inputTokens:-1,outputTokens:0,measured:true}),/inválidos/);
 });
+
+test('usage persistence retries P2028 before commit without repeating provider execution',async()=>{
+ const {quota,scope,records,prisma}=fixture();
+ const transaction=prisma.$transaction;let transactions=0;let providerCalls=0;
+ prisma.$transaction=async operation=>{
+  transactions++;
+  if(transactions===2)throw Object.assign(new Error('Unable to start a transaction in the given time.'),{code:'P2028'});
+  return transaction(operation);
+ };
+ const result=await quota.runRound(scope,{message:'hello'},100,async record=>{
+  providerCalls++;await record({inputTokens:92,outputTokens:62,measured:true});return 'completed';
+ });
+ assert.equal(result,'completed');assert.equal(providerCalls,1);assert.equal(transactions,3);
+ assert.equal(records.usage.length,1);assert.equal(records.usage[0].inputTokens,92);assert.equal(records.usage[0].outputTokens,62);assert.equal(records.usage[0].usageMeasured,true);
+ assert.equal(records.reservations[0].status,'MEASURED');assert.equal(records.reservations[0].reservedTokens,0n);
+});
+
+test('usage persistence retries an ambiguous P2028 commit idempotently',async()=>{
+ const {quota,scope,records,prisma}=fixture();
+ const transaction=prisma.$transaction;let transactions=0;let providerCalls=0;let usageWrites=0;
+ const upsert=prisma.aiUsage.upsert;prisma.aiUsage.upsert=async input=>{usageWrites++;return upsert(input);};
+ prisma.$transaction=async operation=>{
+  transactions++;const attempt=transactions;const result=await transaction(operation);
+  if(attempt===2)throw Object.assign(new Error('Transaction result unavailable.'),{code:'P2028'});
+  return result;
+ };
+ const result=await quota.runRound(scope,{message:'hello'},100,async record=>{
+  providerCalls++;await record({inputTokens:92,outputTokens:62,measured:true});return 'completed';
+ });
+ assert.equal(result,'completed');assert.equal(providerCalls,1);assert.equal(transactions,3);assert.equal(usageWrites,1);
+ assert.equal(records.usage.length,1);assert.equal(records.usage[0].inputTokens,92);assert.equal(records.usage[0].outputTokens,62);assert.equal(records.usage[0].usageMeasured,true);
+ assert.equal(records.reservations[0].status,'MEASURED');assert.equal(records.reservations[0].reservedTokens,0n);
+});
+
+test('usage persistence retries final counters after a persisted partial report',async()=>{
+ const {quota,scope,records,prisma}=fixture();
+ const transaction=prisma.$transaction;let transactions=0;let providerCalls=0;
+ prisma.$transaction=async operation=>{
+  transactions++;
+  if(transactions===3)throw Object.assign(new Error('Unable to start a transaction in the given time.'),{code:'P2028'});
+  return transaction(operation);
+ };
+ await quota.runRound(scope,{message:'hello'},100,async record=>{
+  providerCalls++;
+  await record({inputTokens:92,outputTokens:5,measured:false});
+  await record({inputTokens:92,outputTokens:62,measured:true});
+ });
+ assert.equal(providerCalls,1);assert.equal(transactions,4);assert.equal(records.usage.length,1);
+ assert.equal(records.usage[0].inputTokens,92);assert.equal(records.usage[0].outputTokens,62);assert.equal(records.usage[0].usageMeasured,true);
+ assert.equal(records.reservations[0].reservedTokens,0n);
+});
+
+test('usage persistence keeps the original reservation when P2028 retries are exhausted',async()=>{
+ const {quota,scope,records,prisma}=fixture();
+ const transaction=prisma.$transaction;let transactions=0;let providerCalls=0;
+ const received=[];const record=quota.record.bind(quota);
+ quota.record=async(scope,id,usage)=>{received.push({...usage});return record(scope,id,usage);};
+ prisma.$transaction=async operation=>{
+  transactions++;
+  if(transactions>1)throw Object.assign(new Error('Unable to start a transaction in the given time.'),{code:'P2028'});
+  return transaction(operation);
+ };
+ await assert.rejects(quota.runRound(scope,{message:'hello'},100,async report=>{
+  providerCalls++;await report({inputTokens:92,outputTokens:62,measured:true});
+ }),error=>error.code==='P2028');
+ assert.equal(providerCalls,1);assert.equal(transactions,3);
+ assert.deepEqual(received,[{inputTokens:92,outputTokens:62,measured:true}]);
+ assert.equal(records.usage.length,0);assert.equal(records.reservations[0].status,'RESERVED');
+ assert.equal(records.reservations[0].reservedTokens,BigInt(Buffer.byteLength(JSON.stringify({message:'hello'}),'utf8')+2048+100));
+});

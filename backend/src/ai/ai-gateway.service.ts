@@ -139,6 +139,7 @@ export class AiGatewayService {
     const agent = await this.prisma.agent.findFirst({ where: { id: agentId, tenantId }, include: agentInclude });
     if (!agent) throw new NotFoundException('Agente não encontrado.');
     if (agent.status === 'ARCHIVED') throw new BadRequestException('Este agente está arquivado.');
+    if (agent.status !== 'ACTIVE') throw new BadRequestException('Ative o agente nas configurações para executar.');
     const binding = agent.models.find((item) => item.isPrimary);
     const model: LoadedModel | null = input.modelId ? await this.prisma.aiModel.findUnique({ where: { id: input.modelId }, include: { provider: true } }) : binding?.model || null;
     if (!model) throw new BadRequestException(input.modelId ? 'Modelo não encontrado no catálogo.' : 'Selecione um modelo principal nas configurações do agente.');

@@ -48,9 +48,20 @@ function usageFrom(value: unknown): QuotaUsage {
   if (value === undefined || value === null) return { inputTokens: 0, outputTokens: 0, measured: false };
   const usage = object(value);
   if (!usage) throw protocolError('O OmniRouter retornou contadores de consumo inválidos.');
+  const inputTokens = tokenCount(usage.prompt_tokens); const outputTokens = tokenCount(usage.completion_tokens);
+  const measured = typeof usage.prompt_tokens === 'number' && typeof usage.completion_tokens === 'number';
+  let totalTokens: number | undefined;
+  if (usage.total_tokens !== undefined) {
+    if (typeof usage.total_tokens !== 'number') throw protocolError('O OmniRouter retornou contadores de consumo inválidos.');
+    totalTokens = tokenCount(usage.total_tokens);
+    if (totalTokens < inputTokens + outputTokens) throw protocolError('O OmniRouter retornou contadores de consumo inválidos.');
+  }
   return {
-    inputTokens: tokenCount(usage.prompt_tokens), outputTokens: tokenCount(usage.completion_tokens),
-    measured: typeof usage.prompt_tokens === 'number' && typeof usage.completion_tokens === 'number',
+    inputTokens,
+    // Some gateways include additional output tokens only in the total. Keep
+    // that consumption without inferring missing prompt/completion counters.
+    outputTokens: measured && totalTokens !== undefined ? totalTokens - inputTokens : outputTokens,
+    measured,
   };
 }
 function functionCall(value: unknown): ChatToolCall {

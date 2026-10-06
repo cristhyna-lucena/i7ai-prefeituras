@@ -41,12 +41,14 @@ test('model create requires an existing provider before any catalogue mutation',
 });
 
 test('model create requires a configured gateway for providers without direct integration', async () => {
-  const previous = process.env.AI_GATEWAY_URL; delete process.env.AI_GATEWAY_URL;
+  const envKeys = ['AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY', 'OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY'];
+  const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
+  envKeys.forEach(key => delete process.env[key]);
   try {
     const { service, writes } = fixture({ id: providerId, name: 'External', slug: 'external' });
     await assert.rejects(service.createModel('tenant', { providerId, name: 'Model', slug: 'test-model' }, 'platform-admin'), /gateway de IA/);
     assert.equal(writes.length, 0);
-  } finally { if (previous !== undefined) process.env.AI_GATEWAY_URL = previous; }
+  } finally { envKeys.forEach(key => { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; }); }
 });
 
 test('model create persists supplied prices and returns numeric prices without provider credentials', async () => {
@@ -74,6 +76,46 @@ test('provider responses expose capabilities metadata and omit config or credent
     assert.equal(result[0].config, undefined);
     assert.ok(!JSON.stringify(result).includes('must-never-leak')); assert.ok(!JSON.stringify(result).includes('also-private')); assert.ok(!JSON.stringify(result).includes('secret-endpoint'));
   } finally { if (previous === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previous; }
+});
+
+test('provider metadata distinguishes adapter reasoning control from model reasoning and Omni precedence', async () => {
+  const envKeys = ['OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY'];
+  const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
+  const cases = [
+    { env: {}, slug: 'openai', supported: true },
+    { env: {}, slug: 'external', supported: false },
+    { env: { AI_GATEWAY_URL: 'https://fixture.invalid' }, slug: 'external', supported: true },
+    { env: { OMNIROUTER_BASE_URL: 'https://fixture.invalid/v1' }, slug: 'openai', supported: false },
+    { env: { OMNIROUTER_API_KEY: 'synthetic-fixture' }, slug: 'openai', supported: false },
+    { env: { OMNIROUTER_BASE_URL: 'https://fixture.invalid/v1', OMNIROUTER_API_KEY: 'synthetic-fixture', AI_GATEWAY_URL: 'https://legacy.invalid' }, slug: 'external', supported: false },
+  ];
+  try {
+    for (const { env, slug, supported } of cases) {
+      envKeys.forEach(key => delete process.env[key]); Object.assign(process.env, env);
+      const service = new CatalogService({ aiProvider: { findMany: async () => [{ id: providerId, name: 'Provider', slug, config: { supportsReasoning: true, apiKey: 'provider-private' } }] } });
+      const [provider] = await service.providers();
+      assert.equal(provider.capabilities.supportsAdvancedReasoningControl, supported);
+      assert.equal(provider.capabilities.supportsReasoning, true);
+      assert.ok(!JSON.stringify(provider).includes('synthetic-fixture'));
+      assert.ok(!JSON.stringify(provider).includes('provider-private'));
+    }
+  } finally { envKeys.forEach(key => { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; }); }
+});
+
+test('model catalogue exposes adapter reasoning control without inferring model reasoning or leaking provider config', async () => {
+  const envKeys = ['OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY'];
+  const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
+  process.env.OMNIROUTER_BASE_URL = 'https://fixture.invalid/v1'; process.env.OMNIROUTER_API_KEY = 'synthetic-fixture';
+  const model = { id: modelId, slug: 'claude-fixture', inputPrice: null, outputPrice: null, capabilities: { supportsReasoning: true }, provider: { id: providerId, name: 'Provider', slug: 'anthropic', config: { apiKey: 'provider-private' } } };
+  const service = new CatalogService({ aiModel: { findMany: async () => [model] } });
+  try {
+    const [result] = await service.models();
+    assert.equal(result.provider.capabilities.supportsAdvancedReasoningControl, false);
+    assert.equal(result.capabilities.supportsReasoning, true);
+    assert.equal(result.provider.config, undefined);
+    assert.ok(!JSON.stringify(result).includes('synthetic-fixture'));
+    assert.ok(!JSON.stringify(result).includes('provider-private'));
+  } finally { envKeys.forEach(key => { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; }); }
 });
 
 test('duplicate provider model identifiers return a clear conflict', async () => {

@@ -5,6 +5,132 @@ const { AgentsService } = require('../dist/agents/agents.service');
 const { CatalogService } = require('../dist/catalog/catalog.service');
 const { assertLicenseCapacity, assertActiveLicense, requireActiveLicense, assertStorageCapacity } = require('../dist/catalog/license-policy');
 
+async function withAgentRoutingEnvironment(configuration, action) {
+  const previous = { ...process.env };
+  for (const key of ['OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY']) delete process.env[key];
+  Object.assign(process.env, configuration);
+  try { return await action(); }
+  finally {
+    for (const key of Object.keys(process.env)) if (!Object.hasOwn(previous, key)) delete process.env[key];
+    Object.assign(process.env, previous);
+  }
+}
+
+function reasoningAgentTransaction(advancedReasoning = false) {
+  const writes = [], creates = [], updates = [];
+  let agent = { id: 'agent', tenantId: 'tenant-a', name: 'Agent', status: 'DRAFT', temperature: 0.2, advancedReasoning, models: [], tools: [], knowledgeBases: [] };
+  const mutation = (operation) => async () => { writes.push(operation); return {}; };
+  const tx = {
+    $queryRaw: async () => [],
+    license: { findFirst: async () => ({ status: 'ACTIVE', startDate: new Date('2020-01-01'), endDate: null, maxAgents: 10 }) },
+    agent: {
+      count: async () => 0,
+      findFirst: async () => agent,
+      create: async ({ data }) => {
+        writes.push('agent.create'); creates.push(data);
+        agent = { ...agent, ...data, models: [], tools: [], knowledgeBases: [] };
+        return agent;
+      },
+      update: async ({ data }) => {
+        writes.push('agent.update'); updates.push(data);
+        agent = { ...agent, ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)) };
+        return agent;
+      },
+    },
+    aiModel: { findUnique: async ({ where }) => ({ id: where.id }) },
+    knowledgeBase: { count: async ({ where }) => where.id.in.length },
+    tool: { count: async ({ where }) => where.id.in.length },
+    agentModel: { deleteMany: mutation('models.delete'), create: mutation('models.create') },
+    agentKnowledgeBase: { deleteMany: mutation('knowledge.delete'), createMany: mutation('knowledge.create') },
+    agentTool: { deleteMany: mutation('tools.delete'), createMany: mutation('tools.create') },
+    auditLog: { create: mutation('audit.create') },
+  };
+  return { tx, writes, creates, updates };
+}
+
+const reasoningBindings = { modelId: 'model', knowledgeBaseIds: ['base'], toolIds: ['tool'] };
+const omniRoutingConfigurations = [
+  ['OMNIROUTER_BASE_URL', { OMNIROUTER_BASE_URL: 'https://omniroute.example.test/v1' }],
+  ['OMNIROUTER_API_KEY', { OMNIROUTER_API_KEY: 'test-only-omniroute-key' }],
+];
+
+for (const [variable, configuration] of omniRoutingConfigurations) {
+  test(`agent create rejects advanced reasoning when only ${variable} configures OmniRoute before mutations`, async () => {
+    await withAgentRoutingEnvironment(configuration, async () => {
+      const { tx, writes } = reasoningAgentTransaction();
+      const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+      await assert.rejects(service.create('tenant-a', { name: 'Agent', systemPrompt: 'Help', advancedReasoning: true, ...reasoningBindings }), (error) => error.getStatus?.() === 400);
+      assert.deepEqual(writes, []);
+    });
+  });
+
+  test(`agent PATCH rejects explicit advanced reasoning with ${variable} before binding, agent and audit mutations`, async () => {
+    await withAgentRoutingEnvironment(configuration, async () => {
+      const { tx, writes } = reasoningAgentTransaction();
+      const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+      await assert.rejects(service.update('tenant-a', 'agent', { name: 'Changed', advancedReasoning: true, ...reasoningBindings }), (error) => error.getStatus?.() === 400);
+      assert.deepEqual(writes, []);
+    });
+  });
+
+  test(`agent PATCH rejects inherited advanced reasoning with ${variable} when the field is omitted`, async () => {
+    await withAgentRoutingEnvironment(configuration, async () => {
+      const { tx, writes } = reasoningAgentTransaction(true);
+      const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+      await assert.rejects(service.update('tenant-a', 'agent', { name: 'Changed', ...reasoningBindings }), (error) => error.getStatus?.() === 400);
+      assert.deepEqual(writes, []);
+    });
+  });
+
+  test(`agent PATCH can repair legacy advanced reasoning with ${variable} by explicitly disabling it`, async () => {
+    await withAgentRoutingEnvironment(configuration, async () => {
+      const { tx, writes, updates } = reasoningAgentTransaction(true);
+      const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+      const result = await service.update('tenant-a', 'agent', { advancedReasoning: false, ...reasoningBindings });
+      assert.equal(result.advancedReasoning, false);
+      assert.equal(updates[0].advancedReasoning, false);
+      assert.deepEqual(writes, ['models.delete', 'models.create', 'knowledge.delete', 'knowledge.create', 'tools.delete', 'tools.create', 'agent.update', 'audit.create']);
+    });
+  });
+
+  test(`agent create permits disabled and default reasoning with ${variable}`, async () => {
+    await withAgentRoutingEnvironment(configuration, async () => {
+      for (const reasoningInput of [{ advancedReasoning: false }, {}]) {
+        const { tx, writes, creates } = reasoningAgentTransaction();
+        const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+        const result = await service.create('tenant-a', { name: 'Agent', systemPrompt: 'Help', ...reasoningInput });
+        assert.equal(result.advancedReasoning, false);
+        assert.equal(creates[0].advancedReasoning, false);
+        assert.deepEqual(writes, ['agent.create', 'audit.create']);
+      }
+    });
+  });
+}
+
+test('agent create preserves advanced reasoning outside OmniRoute with a legacy gateway configured', async () => {
+  await withAgentRoutingEnvironment({ AI_GATEWAY_URL: 'https://gateway.example.test', AI_GATEWAY_API_KEY: 'test-only-gateway-key' }, async () => {
+    const { tx, writes, creates } = reasoningAgentTransaction();
+    const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+    const result = await service.create('tenant-a', { name: 'Agent', systemPrompt: 'Help', advancedReasoning: true });
+    assert.equal(result.advancedReasoning, true);
+    assert.equal(creates[0].advancedReasoning, true);
+    assert.deepEqual(writes, ['agent.create', 'audit.create']);
+  });
+});
+
+test('agent PATCH preserves explicit and inherited advanced reasoning outside OmniRoute', async () => {
+  await withAgentRoutingEnvironment({}, async () => {
+    for (const [existingReasoning, input] of [[false, { advancedReasoning: true }], [true, {}]]) {
+      const { tx, writes, updates } = reasoningAgentTransaction(existingReasoning);
+      const service = new AgentsService({ $transaction: (fn) => fn(tx) });
+      const result = await service.update('tenant-a', 'agent', { name: 'Changed', ...input });
+      assert.equal(result.advancedReasoning, true);
+      assert.equal(updates[0].advancedReasoning, input.advancedReasoning);
+      assert.deepEqual(writes, ['agent.update', 'audit.create']);
+    }
+  });
+});
+
 test('agent PATCH denies foreign knowledge bases before deleting bindings', async () => {
   let writes = 0;
   const tx = { agent: { findFirst: async () => ({ id: 'agent' }) }, knowledgeBase: { count: async (query) => { assert.equal(query.where.tenantId, 'tenant-a'); return 0; } }, agentKnowledgeBase: { deleteMany: async () => { writes++; } } };

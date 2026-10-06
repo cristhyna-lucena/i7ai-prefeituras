@@ -39,6 +39,8 @@ function providerMetadata(provider: { id: string; name: string; slug: string; co
     supported: directIntegration || gatewayIntegration, directIntegration, gatewayIntegration,
     integrationConfigured: omniRouter ? omniRouterConfigured : gatewayIntegration || (directIntegration && Boolean(process.env.OPENAI_API_KEY)),
     credentialsConfigured: omniRouter ? Boolean(process.env.OMNIROUTER_API_KEY) : gatewayIntegration ? Boolean(process.env.AI_GATEWAY_API_KEY) : directIntegration && Boolean(process.env.OPENAI_API_KEY),
+    // Adapter support for the user-facing control, distinct from internal model reasoning.
+    supportsAdvancedReasoningControl: !omniRouter && (directIntegration || gatewayIntegration),
     supportsReasoning: typeof config.supportsReasoning === 'boolean' ? config.supportsReasoning : null,
     supportsTemperature: typeof config.supportsTemperature === 'boolean' ? config.supportsTemperature : null,
   } };
@@ -46,7 +48,7 @@ function providerMetadata(provider: { id: string; name: string; slug: string; co
 
 const modelInclude = { provider: { select: { id: true, name: true, slug: true } }, _count: { select: { agents: true } } } satisfies Prisma.AiModelInclude;
 function serializeModel(model: Prisma.AiModelGetPayload<{ include: typeof modelInclude }>) {
-  return { ...model, capabilities: publicModelCapabilities(model.capabilities), inputPrice: model.inputPrice === null ? null : Number(model.inputPrice), outputPrice: model.outputPrice === null ? null : Number(model.outputPrice) };
+  return { ...model, provider: providerMetadata(model.provider), capabilities: publicModelCapabilities(model.capabilities), inputPrice: model.inputPrice === null ? null : Number(model.inputPrice), outputPrice: model.outputPrice === null ? null : Number(model.outputPrice) };
 }
 
 @Injectable()

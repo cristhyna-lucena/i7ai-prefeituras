@@ -37,6 +37,12 @@ export class AgentsService {
     return serialize(agent);
   }
 
+  private validateAdvancedReasoning(enabled: boolean | undefined) {
+    if (enabled === true && (process.env.OMNIROUTER_BASE_URL || process.env.OMNIROUTER_API_KEY)) {
+      throw new BadRequestException('O controle de raciocínio avançado não está disponível no OmniRoute. Desative essa opção para salvar o agente.');
+    }
+  }
+
   private async validateRelations(tx: Prisma.TransactionClient, tenantId: string, input: UpdateAgentDto) {
     if (input.departmentId && !await tx.department.findFirst({ where: { id: input.departmentId, tenantId } })) throw new BadRequestException('Departamento não pertence à prefeitura');
     if (input.modelId && !await tx.aiModel.findUnique({ where: { id: input.modelId } })) throw new BadRequestException('Modelo não encontrado');
@@ -51,6 +57,7 @@ export class AgentsService {
   }
 
   async create(tenantId: string, input: CreateAgentDto, createdById?: string) {
+    this.validateAdvancedReasoning(input.advancedReasoning);
     return this.prisma.$transaction(async (tx) => {
       await this.validateRelations(tx, tenantId, input);
       if (createdById && !await tx.user.findFirst({ where: { id: createdById, tenantId } })) throw new BadRequestException('Usuário inválido');
@@ -73,6 +80,7 @@ export class AgentsService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.agent.findFirst({ where: { id, tenantId } });
       if (!existing) throw new NotFoundException('Agente não encontrado');
+      this.validateAdvancedReasoning(input.advancedReasoning ?? existing.advancedReasoning);
       await this.validateRelations(tx, tenantId, input);
       if (existing.status === 'ARCHIVED' && input.status !== undefined && input.status !== 'ARCHIVED') await assertLicenseCapacity(tx, tenantId, 'agents');
       if (input.modelId !== undefined) {

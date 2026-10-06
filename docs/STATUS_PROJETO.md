@@ -2,7 +2,11 @@
 
 Levantamento de 5 de outubro de 2026, com base no código do commit `701412c`, no banco local e nas consultas ao GitHub realizadas nessa data. Este documento reúne os pedidos do usuário, as entregas, as configurações pendentes e os limites atuais. Estados externos, como convites e credenciais, devem ser conferidos novamente antes de executar a próxima etapa.
 
-O código está publicado e validado em desenvolvimento. A ativação da IA real, a integração ao SGDM real, a implantação no destino e o acesso administrativo de JEFERSON-ASSIS continuam pendentes.
+Atualização local em 6 de outubro de 2026: a regra de execução foi alinhada para exigir agentes `ACTIVE` também na API (P06). A conta OmniRoute foi configurada no backend, com Claude e Gemini respondendo pela API do i7Ai. Além do Assistente da Prefeitura, os agentes de Licitações e Contratos foram ativados e vinculados à base da área, seguindo a prioridade escolhida pelo usuário. Os resultados, erros das rotas GPT e limites de validação estão em [OmniRoute local](OMNIROUTE_LOCAL.md). O inventário histórico e os estados do GitHub abaixo continuam referentes ao levantamento de 5 de outubro.
+
+O código das etapas anteriores está publicado e validado em desenvolvimento. Após a revisão da configuração, GPT-4o Mini, GPT 5.6 Luna (Low), Claude e Gemini responderam pelo i7Ai, com histórico e consumo medido. Visão com GPT-4o Mini passou com a licença atual; o controle incompatível de raciocínio avançado foi desabilitado e a persistência de contadores em `P2028` foi corrigida. Builds aprovados e 198 testes de backend passaram. As demais capacidades ainda não exercitadas, integração ao SGDM real, implantação no destino e acesso administrativo de JEFERSON-ASSIS continuam pendentes. A configuração ativa, os cadastros e os dados dessa verificação permanecem no ambiente local; a atualização do código e da documentação não implanta o projeto no destino.
+
+O acesso local completo em `http://127.0.0.1:5173/` abre o dashboard e o menu das 16 áreas, com dados reais e sessão temporária do usuário de desenvolvimento existente. A navegação pelas 16 telas, a recarga de rota e o seletor móvel passaram sem erros JavaScript ou falhas da API, sem enviar mensagens de IA ou alterar cadastros. Esse host de revisão não publica o projeto nem conclui a integração ao SGDM real.
 
 ## Projeto e arquitetura
 
@@ -26,7 +30,7 @@ O código está publicado e validado em desenvolvimento. A ativação da IA real
 | Melhorar Novo Chat | Implementado | Seletores, mensagens, processamento, streaming, interrupção, campo de múltiplas linhas e botão `+`. |
 | Manter histórico e metadados | Implementado com limites | Isolamento por usuário/prefeitura, títulos, datas, agente, último modelo e identificação por turno. |
 | Enviar contexto do agente e da conversa | Implementado | Prompt, bases vinculadas, histórico recente, mensagem e anexos autorizados. |
-| Usar OmniRouter como gateway central | Adaptador implementado | URL, credencial, modelos e chamadas reais ainda precisam de configuração/validação. |
+| Usar OmniRouter como gateway central | Conectado localmente, com limites | OmniRoute configurado com dois GPTs, Claude e Gemini; texto nas quatro rotas e visão com GPT-4o Mini verificados. Demais capacidades e implantação continuam pendentes. |
 | Anexar e processar arquivos | Implementado para os formatos disponíveis | XLS, ZIP, áudio e vídeo permanecem indisponíveis. |
 | Validar e proteger uploads | Implementado | Extensão, MIME, conteúdo, tamanho, nome, propriedade e isolamento; arquivos privados, sem execução. |
 | Criar migration compatível com os dados | Concluído localmente | Migration aditiva aplicada com backup e comparação; aplicação no destino ainda pendente. |
@@ -46,6 +50,10 @@ Aceitar o convite atual concede escrita. Fontes oficiais: [permissões de contas
 
 ### P02 — Ativação real do OmniRouter
 
+Na verificação inicial de 6 de outubro, o serviço fornecido foi identificado como OmniRoute, com base HTTPS `/v1` e Bearer. Claude e Gemini foram cadastrados com IDs do catálogo e responderam pelo i7Ai; streaming de ambos, histórico, troca de modelo, consumo, ferramenta de Claude e cancelamento passaram. Três agentes ficaram ativos, incluindo Licitações e Contratos, com base da área criada e ainda sem documentos. Quatro rotas GPT retornaram erros do gateway/provedor. A visão com contexto de 1.048.576 foi bloqueada pela licença local de 1 milhão. O teste de ferramentas Gemini retornou timeout de transação, e a revisão automática bloqueou a repetição sem detalhar o motivo. Detalhes e procedimento administrativo: [OmniRoute local](OMNIROUTE_LOCAL.md). A lista abaixo descreve o escopo operacional completo; os itens já verificados localmente estão discriminados nesse relatório.
+
+A revisão posterior regularizou o GPT legado para `openai/gpt-4o-mini` e cadastrou `cx/gpt-5.6-luna-low`, após respostas reais válidas. Os quatro modelos passaram pelo i7Ai com histórico e consumo; visão com GPT-4o Mini passou com sua janela real de 128.000, sem alterar a licença. O bloqueio de imagem citado acima permanece para Claude/Gemini na licença atual. A perda de contadores diante de `P2028` foi corrigida com repetição idempotente da persistência; não houve repetição da chamada de ferramentas Gemini bloqueada.
+
 - Confirmar qual serviço OmniRouter é utilizado, sua documentação e o endereço oficial compatível com o contrato do adaptador.
 - Configurar `OMNIROUTER_BASE_URL` e `OMNIROUTER_API_KEY` exclusivamente no ambiente do backend.
 - Confirmar os modelos habilitados na conta e cadastrar seus identificadores exatos com nomes amigáveis, como GPT, Claude e Gemini.
@@ -53,9 +61,9 @@ Aceitar o convite atual concede escrita. Fontes oficiais: [permissões de contas
 - Cadastrar preços se a operação precisar calcular custos monetários. Preços ausentes permanecem como não configurados.
 - Validar chamadas reais das famílias desejadas, streaming, contadores de consumo, cancelamento, erros, ferramentas e análise de imagens.
 
-Não há endereço padrão presumido nem IDs de modelos inventados. O adaptador central tem precedência quando configurado; os adaptadores anteriores permanecem disponíveis para ambientes existentes. Embeddings possuem configuração separada.
+O endereço e os dois novos IDs vêm do servidor fornecido pelo usuário, sem endpoint ou identificador presumido. O adaptador central tem precedência quando configurado; os adaptadores anteriores permanecem disponíveis para ambientes existentes. Embeddings possuem configuração separada.
 
-O inventário do banco local na data deste levantamento é:
+O inventário histórico do banco local em 5 de outubro, anterior à configuração real, é:
 
 | Provedor | Modelo cadastrado | Preços | Capacidades |
 | --- | --- | --- | --- |
@@ -63,7 +71,7 @@ O inventário do banco local na data deste levantamento é:
 | Anthropic | Nenhum | — | — |
 | Google | Nenhum | — | — |
 
-Há três provedores e somente um modelo cadastrado. Esse cadastro não confirma disponibilidade do identificador na conta OmniRouter. Os modelos GPT/Claude/Gemini da prévia são fictícios. Nos arquivos locais consultados, credenciais reais de OmniRouter, OpenAI, gateway legado, embeddings e ferramentas externas não estavam preenchidas.
+Em 5 de outubro havia três provedores e somente um modelo cadastrado. Esse cadastro não confirmava disponibilidade do identificador na conta OmniRouter. Os modelos GPT/Claude/Gemini da prévia continuam fictícios. Nos arquivos locais consultados naquela data, credenciais reais de OmniRouter, OpenAI, gateway legado, embeddings e ferramentas externas não estavam preenchidas. Em 6 de outubro, a credencial OmniRoute foi configurada somente no backend e dois modelos reais foram adicionados, preservando o modelo legado.
 
 ### P03 — Vinculação ao SGDM real
 
@@ -72,7 +80,7 @@ Há três provedores e somente um modelo cadastrado. Esse cadastro não confirma
 - Mapear `sub` e `tenantId` do JWT aos usuários e prefeituras reais existentes no banco.
 - Validar perfis, permissões, nomes exibidos e visual dentro do ambiente real.
 
-A prévia local usa dados sintéticos; a vinculação ao SGDM real foi deixada para a etapa final. O contrato de sessão e eventos está no [README](../README.md#integração-com-sgdm).
+A prévia visual em `preview/sgdm.html` usa dados sintéticos; o host em `preview/local.jsx` permite revisar as 16 áreas com a API real e sessão de desenvolvimento. A vinculação ao SGDM real foi deixada para a etapa final. O contrato de sessão e eventos está no [README](../README.md#integração-com-sgdm).
 
 ### P04 — Implantação no destino
 
@@ -92,7 +100,9 @@ A lateral lista até 100 conversas recentes; cada conversa reaberta exibe até 1
 
 ### P06 — Alinhamento da regra de agentes ativos
 
-O catálogo e a interface permitem envio somente com agente `ACTIVE`. O gateway bloqueia `ARCHIVED`, mas uma chamada direta autorizada à API ainda pode executar um agente `DRAFT`. É necessário alinhar a regra do servidor com a interface, caso a política de operação exija execução apenas de agentes ativos. Essa divergência foi registrada; ainda não foi corrigida.
+Corrigido localmente em 6 de outubro de 2026. O catálogo, a interface e o gateway exigem agente `ACTIVE`. A verificação central recusa `DRAFT` e `ARCHIVED` no chat, no streaming e em `executeAgent`, antes de consultar bases/ferramentas, reservar tokens, chamar o provedor ou gravar respostas. Rascunhos orientam a ativação nas configurações; agentes arquivados mantêm a mensagem existente. Nenhuma migration é necessária.
+
+Verificação em 6 de outubro: `npm run build` e `npm test` do backend aprovados, com 174 testes, incluindo seis regressões de estado nas três formas de chamada. Antes da correção, os três cenários de `DRAFT` reproduziram a execução indevida; depois, todos passaram. As chamadas utilizaram provedores simulados.
 
 ### P07 — Configurações dependentes da operação
 
@@ -122,7 +132,7 @@ O catálogo e a interface permitem envio somente com agente `ACTIVE`. O gateway 
 
 Os anexos reutilizam S3/MinIO, fila e quotas existentes. Ficam fora dos documentos compartilhados, bases e consultas RAG. Conteúdo privado não gera embeddings. Segredos reais e backups permanecem fora do Git.
 
-## Verificações e banco local
+## Verificações e banco local — histórico de 5 de outubro
 
 - Builds frontend/backend e quatro testes do consumidor SSE aprovados.
 - Auditoria SGDM aprovada: 18 arquivos e 241 usos de componentes oficiais.
@@ -133,4 +143,4 @@ Os anexos reutilizam S3/MinIO, fila e quotas existentes. Ficam fora dos document
 - Banco local com seis migrations aplicadas e nenhuma pendente. Backup PostgreSQL criado e validado em `output/backup`, ignorado pelo Git.
 - Comparação de 30 tabelas confirmou IDs e hashes de todas as colunas anteriores preservados. Os documentos antigos conservaram seu escopo; Anthropic e Google foram adicionados ao catálogo.
 
-Os testes de IA utilizaram serviços simulados. Chamadas reais, integração SGDM e implantação em produção continuam pendentes. Os resultados de 2 de outubro nos demais documentos são históricos; detalhes atuais da implementação estão em [Chat e OmniRouter](CHAT_OMNIROUTER.md) e [validação SGDM](VALIDACAO_SGDM.md).
+Esses testes de IA de 5 de outubro utilizaram serviços simulados. As chamadas reais de texto e visão com GPT foram verificadas posteriormente em 6 de outubro, conforme [OmniRoute local](OMNIROUTE_LOCAL.md); integração SGDM e implantação em produção continuam pendentes. Os resultados de 2 de outubro nos demais documentos também são históricos; detalhes da implementação estão em [Chat e OmniRouter](CHAT_OMNIROUTER.md) e [validação SGDM](VALIDACAO_SGDM.md).

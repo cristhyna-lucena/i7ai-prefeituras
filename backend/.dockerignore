@@ -11,6 +11,8 @@
 !prisma/**
 !scripts/
 !scripts/**
+!presets/
+!presets/**
 **/.env*
 **/*.pem
 **/*.key

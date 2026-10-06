@@ -6,7 +6,7 @@ const { AiGatewayService, calculateUsageCost } = require('../dist/ai/ai-gateway.
 
 const selectedModel = { id: 'model-primary', slug: 'gpt-4o-mini', inputPrice: 0.15, outputPrice: 0.60, provider: { name: 'OpenAI', slug: 'openai', config: null } };
 function fixture() {
-  const records = { messages: [], usage: [], audit: [], conversationCreates: [], retrieval: [] };
+  const records = { messages: [], usage: [], audit: [], conversationCreates: [], conversationUpdates: [], retrieval: [], toolLoads: [] };
   const agent = { id: 'agent-a', tenantId: 'tenant-a', status: 'ACTIVE', name: 'Analista', systemPrompt: 'Use evidências.', temperature: 0.35, maxTokens: 900, advancedReasoning: false, models: [{ isPrimary: false, model: { ...selectedModel, slug: 'wrong-model' } }, { isPrimary: true, model: { ...selectedModel } }] };
   const prisma = {
     agent: { findFirst: async ({ where }) => { assert.equal(where.tenantId, 'tenant-a'); return agent; } },
@@ -15,7 +15,7 @@ function fixture() {
     conversation: {
       findFirst: async () => null,
       create: async ({ data }) => { records.conversationCreates.push(data); return { id: 'conversation-a' }; },
-      update: async () => ({}),
+      update: async ({ data }) => { records.conversationUpdates.push(data); return {}; },
     },
     message: { create: async ({ data }) => { const message = { id: 'message-' + records.messages.length, createdAt: new Date(), ...data }; records.messages.push(message); return message; } },
     aiUsage: { create: async ({ data }) => { records.usage.push(data); return data; } },
@@ -23,17 +23,44 @@ function fixture() {
   };
   prisma.$transaction = async (callback) => callback(prisma);
   const rag = { searchForAgent: async (...args) => { records.retrieval.push(args); return [{ id: 'chunk-a', content: 'Orçamento aprovado.', documentId: 'document-a', knowledgeBaseId: 'base-a', documentName: 'Lei 10', chunkIndex: 0, retrieval: 'literal' }]; } };
-  return { service: new AiGatewayService(prisma, rag, { load: async () => [] }, quotaFixture(prisma, records)), prisma, records, agent };
+  const agentTools = { load: async (...args) => { records.toolLoads.push(args); return []; } };
+  return { service: new AiGatewayService(prisma, rag, agentTools, quotaFixture(prisma, records)), prisma, records, agent };
 }
 
 const originalFetch = global.fetch;
-const envKeys = ['OPENAI_API_KEY', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY', 'OPENAI_BASE_URL', 'NODE_ENV'];
+const envKeys = ['OPENAI_API_KEY', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY', 'OPENAI_BASE_URL', 'OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY', 'NODE_ENV'];
 const savedEnvironment = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 test.beforeEach(() => { envKeys.forEach((key) => delete process.env[key]); });
 test.afterEach(() => { global.fetch = originalFetch; envKeys.forEach((key) => { if (savedEnvironment[key] === undefined) delete process.env[key]; else process.env[key] = savedEnvironment[key]; }); });
 
 function providerResponse(answer = 'A lei prevê orçamento. [Fonte 1]') {
   return new Response(JSON.stringify({ id: 'response-test', object: 'response', status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: answer, annotations: [] }] }], usage: { input_tokens: 200, output_tokens: 50 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+for (const [status, message] of [['DRAFT', 'Ative o agente nas configurações para executar.'], ['ARCHIVED', 'Este agente está arquivado.']]) {
+  for (const operation of ['chat', 'chatStream', 'executeAgent']) {
+    test(`inactive agent ${status} is rejected by ${operation} before provider, retrieval, tools or writes`, async () => {
+      const { service, agent, records } = fixture();
+      agent.status = status;
+      process.env.AI_GATEWAY_URL = 'https://gateway.invalid';
+      let providerCalls = 0;
+      const events = [];
+      global.fetch = async () => {
+        providerCalls++;
+        return new Response(JSON.stringify({ answer: 'Não deveria ser executado', usage: { inputTokens: 10, outputTokens: 5 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      };
+      const execute = () => operation === 'executeAgent'
+        ? service.executeAgent('agent-a', 'tenant-a', { message: 'Resuma', automationId: 'automation-a' })
+        : operation === 'chatStream'
+          ? service.chatStream('agent-a', 'tenant-a', { message: 'Resuma' }, 'user-a', (...event) => events.push(event))
+          : service.chat('agent-a', 'tenant-a', { message: 'Resuma' }, 'user-a');
+
+      await assert.rejects(execute, (error) => error.getStatus?.() === 400 && error.message === message);
+      assert.equal(providerCalls, 0);
+      assert.deepEqual(events, []);
+      assert.deepEqual(records, { messages: [], usage: [], audit: [], conversationCreates: [], conversationUpdates: [], retrieval: [], toolLoads: [], reservations: [] });
+    });
+  }
 }
 
 test('chat uses primary model/settings, parses real Responses output and persists history, usage and audit', async () => {

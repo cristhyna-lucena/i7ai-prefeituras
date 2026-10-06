@@ -38,7 +38,7 @@ export class AiQuotaService {
 
   async record(scope: QuotaScope, id: string, usage: QuotaUsage) {
     if (![usage.inputTokens, usage.outputTokens].every(value => Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647)) throw new BadRequestException('Contadores de consumo inválidos.');
-    await this.prisma.$transaction(async tx => {
+    const persist = () => this.prisma.$transaction(async tx => {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM tenants WHERE id = ${scope.tenantId}::uuid FOR UPDATE`);
       const reservation = await tx.aiTokenReservation.findFirst({ where: { id, runId: scope.runId, tenantId: scope.tenantId } });
       if (!reservation || reservation.status === 'REJECTED') throw new Error('Reserva de consumo não encontrada.');
@@ -53,6 +53,13 @@ export class AiQuotaService {
       await tx.aiUsage.upsert({ where: { id }, create: { id, ...data, createdAt: reservation.createdAt }, update: data });
       await tx.aiTokenReservation.update({ where: { id }, data: { status: usage.measured ? 'MEASURED' : 'UNCERTAIN', reservedTokens: unresolved, finishedAt: new Date() } });
     });
+    try { await persist(); }
+    catch (error) {
+      if ((error as { code?: string } | null)?.code !== 'P2028') throw error;
+      // Retry only persistence, using the same reservation and counters. The
+      // tenant lock and measured-usage check also protect an ambiguous commit.
+      await persist();
+    }
   }
 
   async runRound<T>(scope: QuotaScope, request: unknown, outputLimit: number, operation: (record: (usage: QuotaUsage) => Promise<void>) => Promise<T>, inputUpperBound?: number): Promise<T> {
@@ -62,13 +69,15 @@ export class AiQuotaService {
     // than mistaking base64 bytes for input tokens. Actual usage is still measured.
     const budget = BigInt((inputUpperBound ?? Buffer.byteLength(JSON.stringify(request), 'utf8') + 2048) + outputLimit);
     const reservation = await this.reserve(scope, budget);
-    let reported = false;
+    let reported = false; let receivedUsage = false;
     try {
-      const result = await operation(async usage => { await this.record(scope, reservation.id, usage); reported = true; });
+      const result = await operation(async usage => { receivedUsage = true; await this.record(scope, reservation.id, usage); reported = true; });
       if (!reported) await this.record(scope, reservation.id, { inputTokens: 0, outputTokens: 0, measured: false });
       return result;
     } catch (error) {
-      if (!reported) {
+      // A failed counter write must retain its reservation, rather than replace
+      // known consumption with a fabricated zero report after retry exhaustion.
+      if (!reported && !receivedUsage) {
         const candidate = error as { status?: number; providerStatus?: number };
         const rejected = [400, 401, 402, 403, 404, 422, 429].includes(candidate.providerStatus ?? candidate.status ?? 0);
         if (rejected) await this.prisma.aiTokenReservation.update({ where: { id: reservation.id }, data: { status: 'REJECTED', reservedTokens: 0n, finishedAt: new Date() } });

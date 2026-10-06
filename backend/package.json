@@ -14,7 +14,8 @@
         "start:prod": "node dist/main.js",
         "prisma:deploy": "prisma migrate deploy",
         "prisma:seed": "node scripts/seed.cjs",
-        "provision": "node scripts/provision.cjs"
+        "provision": "node scripts/provision.cjs",
+        "omniroute:configure": "node scripts/configure-omniroute.cjs"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "3.1142.0",

@@ -11,7 +11,7 @@ const { ToolsService } = require('../dist/tools/tools.service');
 const { McpService } = require('../dist/mcp/mcp.service');
 
 const savedFetch = global.fetch;
-const envKeys = ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY', 'NODE_ENV', 'TOOLS_ALLOW_PRIVATE_NETWORK', 'TOOL_SECRET_FIXTURE'];
+const envKeys = ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'AI_GATEWAY_URL', 'AI_GATEWAY_API_KEY', 'OMNIROUTER_BASE_URL', 'OMNIROUTER_API_KEY', 'NODE_ENV', 'TOOLS_ALLOW_PRIVATE_NETWORK', 'TOOL_SECRET_FIXTURE'];
 const savedEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 test.beforeEach(() => { envKeys.forEach((key) => delete process.env[key]); });
 test.afterEach(() => { global.fetch = savedFetch; envKeys.forEach((key) => { if (savedEnv[key] === undefined) delete process.env[key]; else process.env[key] = savedEnv[key]; }); });
